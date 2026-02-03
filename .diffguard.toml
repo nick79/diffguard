@@ -1,0 +1,11 @@
+# Diffguard Configuration
+# See README.md for all available options
+
+# LLM model for security analysis
+# model = "gpt-4o-mini"
+
+# Number of lines to expand around each changed hunk
+# hunk_expansion_lines = 50
+
+# Maximum concurrent API calls
+# max_concurrent_api_calls = 5
