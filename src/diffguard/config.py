@@ -29,6 +29,14 @@ class DiffguardConfig(BaseModel):
         description="Patterns identifying third-party code paths",
     )
 
+    # Sensitive file exclusion
+    sensitive_patterns: list[str] = Field(
+        default_factory=list, description="Additional glob patterns for sensitive file exclusion"
+    )
+    use_default_sensitive_patterns: bool = Field(
+        default=True, description="Whether to include built-in sensitive file patterns"
+    )
+
     # LLM settings
     model: str = Field(default="gpt-5.2", description="OpenAI model to use for analysis")
     max_concurrent_api_calls: int = Field(default=5, ge=1, description="Maximum concurrent API calls")

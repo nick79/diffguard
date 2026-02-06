@@ -94,7 +94,37 @@ timeout = 120  # default
 
 # Patterns identifying third-party code paths (excluded from symbol resolution)
 third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]  # default
+
+# Additional glob patterns for sensitive file exclusion
+# These are added on top of the built-in defaults (.env, *.pem, *.key, etc.)
+sensitive_patterns = ["*.secret.json", "**/private/**"]  # default: []
+
+# Whether to include the built-in sensitive file patterns
+use_default_sensitive_patterns = true  # default
 ```
+
+### Sensitive File Exclusion
+
+Diffguard automatically excludes files matching known secrets patterns from being sent to the LLM. This provides defense-in-depth even if sensitive files are accidentally staged.
+
+**Default patterns include:**
+- Environment files: `.env`, `.env.*`, `*.env`
+- Private keys: `*.pem`, `*.key`, `id_rsa`, `id_ed25519`, etc.
+- Certificates: `*.crt`, `*.p12`, `*.pfx`, `*.jks`
+- Secrets files: `secrets.json`, `credentials.json`, `secrets.yaml`, etc.
+- Cloud credentials: `.aws/credentials`, `service-account*.json`, etc.
+- Infrastructure: `*.tfvars`, `*.tfstate`, etc.
+
+The two settings work together:
+
+| `use_default_sensitive_patterns` | `sensitive_patterns` | Result |
+|---|---|---|
+| `true` (default) | empty (default) | Built-in patterns only |
+| `true` | `["*.custom"]` | Built-in + your custom patterns |
+| `false` | `["*.custom"]` | Your custom patterns only |
+| `false` | empty | No exclusion (not recommended) |
+
+Built-in patterns are enabled by default for security. To extend them, add your patterns to `sensitive_patterns` — they are appended to the built-in list. To take full control, set `use_default_sensitive_patterns = false` and provide your own complete list.
 
 ### Environment Variables
 
