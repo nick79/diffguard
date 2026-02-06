@@ -13,6 +13,10 @@ class GitError(DiffguardError):
     """Git operation errors."""
 
 
+class ContextError(DiffguardError):
+    """Context-building errors (file read, hunk expansion)."""
+
+
 class LLMError(DiffguardError):
     """Base exception for LLM-related errors."""
 
