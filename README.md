@@ -75,7 +75,7 @@ Create a `.diffguard.toml` file in your project root (or any parent directory) t
 
 ```toml
 # LLM model to use for analysis
-model = "gpt-4o-mini"  # default
+model = "gpt-5.2"  # default
 
 # Number of lines to expand around each changed hunk for context
 hunk_expansion_lines = 50  # default

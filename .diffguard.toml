@@ -2,7 +2,7 @@
 # See README.md for all available options
 
 # LLM model for security analysis
-# model = "gpt-4o-mini"
+# model = "gpt-5.2"
 
 # Number of lines to expand around each changed hunk
 # hunk_expansion_lines = 50
