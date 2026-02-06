@@ -24,9 +24,9 @@ class TestDiffguardConfigDefaults:
         assert config.scope_size_limit == 200
 
     def test_default_model(self) -> None:
-        """Default model should be gpt-4o-mini."""
+        """Default model should be gpt-5.2."""
         config = DiffguardConfig()
-        assert config.model == "gpt-4o-mini"
+        assert config.model == "gpt-5.2"
 
     def test_default_max_concurrent_api_calls(self) -> None:
         """Default max concurrent API calls should be 5."""
@@ -63,7 +63,7 @@ class TestLoadConfigFromFile:
 
         assert config.hunk_expansion_lines == 50
         assert config.scope_size_limit == 200
-        assert config.model == "gpt-4o-mini"
+        assert config.model == "gpt-5.2"
 
     def test_load_config_partial_override(self, tmp_path: Path, sample_partial_config_toml: str) -> None:
         """AC3: Config partial override - only model specified."""
@@ -126,7 +126,7 @@ class TestLoadConfigFromFile:
         config = load_config(config_path=config_file)
 
         assert config.hunk_expansion_lines == 50
-        assert config.model == "gpt-4o-mini"
+        assert config.model == "gpt-5.2"
 
     def test_comments_only_config_file(self, tmp_path: Path, sample_comments_only_toml: str) -> None:
         """AC10: Config file with only comments returns defaults."""
@@ -136,7 +136,7 @@ class TestLoadConfigFromFile:
         config = load_config(config_path=config_file)
 
         assert config.hunk_expansion_lines == 50
-        assert config.model == "gpt-4o-mini"
+        assert config.model == "gpt-5.2"
 
 
 class TestFindConfigFile:
