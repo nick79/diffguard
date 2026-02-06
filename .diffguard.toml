@@ -9,3 +9,10 @@
 
 # Maximum concurrent API calls
 # max_concurrent_api_calls = 5
+
+# Additional glob patterns for sensitive file exclusion (added to built-in defaults)
+# sensitive_patterns = ["*.secret.json", "**/private/**"]
+
+# Built-in sensitive file patterns are enabled by default for security.
+# Set to false to disable them (use only your custom patterns).
+use_default_sensitive_patterns = true

@@ -4,7 +4,7 @@ import tomllib
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from diffguard.exceptions import ConfigError
 
@@ -14,7 +14,7 @@ CONFIG_FILENAME = ".diffguard.toml"
 class DiffguardConfig(BaseModel):
     """Configuration for Diffguard security analysis."""
 
-    model_config = {"extra": "ignore"}
+    model_config = ConfigDict(extra="ignore", frozen=True)
 
     # Context building settings
     hunk_expansion_lines: int = Field(default=50, ge=0, description="Number of lines to expand around each hunk")
@@ -27,6 +27,14 @@ class DiffguardConfig(BaseModel):
     third_party_patterns: list[str] = Field(
         default_factory=lambda: ["venv/", ".venv/", "site-packages/", "node_modules/"],
         description="Patterns identifying third-party code paths",
+    )
+
+    # Sensitive file exclusion
+    sensitive_patterns: list[str] = Field(
+        default_factory=list, description="Additional glob patterns for sensitive file exclusion"
+    )
+    use_default_sensitive_patterns: bool = Field(
+        default=True, description="Whether to include built-in sensitive file patterns"
     )
 
     # LLM settings
