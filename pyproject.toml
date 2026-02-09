@@ -84,6 +84,10 @@ plugins = ["pydantic.mypy"]
 module = "tree_sitter.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "tree_sitter_python"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
