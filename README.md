@@ -132,6 +132,22 @@ Built-in patterns are enabled by default for security. To extend them, add your 
 |----------|-------------|
 | `OPENAI_API_KEY` | Your OpenAI API key (required) |
 
+## Supported Languages
+
+Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to build precise context around code changes. The following languages are supported for scope detection and symbol resolution:
+
+| Language | Extensions | Status |
+|----------|-----------|--------|
+| Python | `.py`, `.pyi` | Supported |
+| JavaScript | `.js`, `.mjs`, `.cjs`, `.jsx` | Planned |
+| TypeScript | `.ts`, `.mts`, `.cts`, `.tsx` | Planned |
+| Java | `.java` | Planned |
+| Ruby | `.rb` | Planned |
+| Go | `.go` | Planned |
+| PHP | `.php` | Planned |
+
+Files with unsupported or unrecognized extensions are still included in the diff analysis — they just skip AST-based context enrichment and use raw hunk expansion instead.
+
 ## Development
 
 ```bash
