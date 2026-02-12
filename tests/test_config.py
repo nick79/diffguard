@@ -49,7 +49,7 @@ class TestLoadConfigFromFile:
     """Test loading config from .diffguard.toml files."""
 
     def test_load_config_from_file(self, tmp_path: Path, sample_valid_config_toml: str) -> None:
-        """AC1: Config loading from file with hunk_expansion_lines = 100."""
+        """Config loading from file with hunk_expansion_lines = 100."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text(sample_valid_config_toml)
 
@@ -58,7 +58,7 @@ class TestLoadConfigFromFile:
         assert config.hunk_expansion_lines == 100
 
     def test_load_config_defaults_when_file_missing(self, tmp_path: Path) -> None:
-        """AC2: Config defaults when file missing."""
+        """Config defaults when file missing."""
         config = load_config(start_path=tmp_path)
 
         assert config.hunk_expansion_lines == 50
@@ -66,7 +66,7 @@ class TestLoadConfigFromFile:
         assert config.model == "gpt-5.2"
 
     def test_load_config_partial_override(self, tmp_path: Path, sample_partial_config_toml: str) -> None:
-        """AC3: Config partial override - only model specified."""
+        """Config partial override - only model specified."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text(sample_partial_config_toml)
 
@@ -77,7 +77,7 @@ class TestLoadConfigFromFile:
         assert config.scope_size_limit == 200  # default
 
     def test_invalid_toml_syntax_raises_error(self, tmp_path: Path, sample_invalid_syntax_toml: str) -> None:
-        """AC4: Invalid TOML syntax raises ConfigError."""
+        """Invalid TOML syntax raises ConfigError."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text(sample_invalid_syntax_toml)
 
@@ -87,7 +87,7 @@ class TestLoadConfigFromFile:
         assert "Invalid TOML" in str(exc_info.value)
 
     def test_negative_value_raises_error(self, tmp_path: Path, sample_negative_value_toml: str) -> None:
-        """AC5: Pydantic validation - negative value raises ConfigError."""
+        """Pydantic validation - negative value raises ConfigError."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text(sample_negative_value_toml)
 
@@ -97,7 +97,7 @@ class TestLoadConfigFromFile:
         assert "hunk_expansion_lines" in str(exc_info.value)
 
     def test_wrong_type_raises_error(self, tmp_path: Path, sample_wrong_type_toml: str) -> None:
-        """AC6: Pydantic validation - wrong type raises ConfigError."""
+        """Pydantic validation - wrong type raises ConfigError."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text(sample_wrong_type_toml)
 
@@ -107,7 +107,7 @@ class TestLoadConfigFromFile:
         assert "hunk_expansion_lines" in str(exc_info.value)
 
     def test_unknown_field_ignored(self, tmp_path: Path, sample_unknown_field_toml: str) -> None:
-        """AC7: Unknown field is ignored (extra='ignore' mode)."""
+        """Unknown field is ignored (extra='ignore' mode)."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text(sample_unknown_field_toml)
 
@@ -119,7 +119,7 @@ class TestLoadConfigFromFile:
         assert not hasattr(config, "unknown_field")
 
     def test_empty_config_file(self, tmp_path: Path) -> None:
-        """AC9: Empty config file returns defaults."""
+        """Empty config file returns defaults."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text("")
 
@@ -129,7 +129,7 @@ class TestLoadConfigFromFile:
         assert config.model == "gpt-5.2"
 
     def test_comments_only_config_file(self, tmp_path: Path, sample_comments_only_toml: str) -> None:
-        """AC10: Config file with only comments returns defaults."""
+        """Config file with only comments returns defaults."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text(sample_comments_only_toml)
 
@@ -152,7 +152,7 @@ class TestFindConfigFile:
         assert found == config_file
 
     def test_find_config_in_parent_directory(self, tmp_path: Path) -> None:
-        """AC8: Config file in parent directory is found."""
+        """Config file in parent directory is found."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text("model = 'test'")
 
@@ -178,7 +178,7 @@ class TestFindConfigFile:
         assert found is None or isinstance(found, Path)
 
     def test_load_config_from_parent_directory(self, tmp_path: Path) -> None:
-        """AC8: load_config() finds config in parent directory."""
+        """load_config() finds config in parent directory."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text("hunk_expansion_lines = 75")
 
@@ -195,7 +195,7 @@ class TestConfigFilePermissions:
 
     @pytest.mark.skipif(os.name == "nt", reason="chmod not reliable on Windows")
     def test_permission_denied_raises_error(self, tmp_path: Path) -> None:
-        """AC13: Config file permission error raises ConfigError."""
+        """Config file permission error raises ConfigError."""
         config_file = tmp_path / CONFIG_FILENAME
         config_file.write_text("model = 'test'")
         config_file.chmod(0o000)

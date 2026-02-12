@@ -183,7 +183,7 @@ index abc123..def456 100644
 
 
 class TestParseSingleFileDiff:
-    """AC1: Parse single-file diff."""
+    """Parse single-file diff."""
 
     def test_single_file_returns_one_diff_file(self) -> None:
         result = parse_diff(SAMPLE_SINGLE_FILE_DIFF)
@@ -199,7 +199,7 @@ class TestParseSingleFileDiff:
 
 
 class TestParseMultiFileDiff:
-    """AC2: Parse multi-file diff."""
+    """Parse multi-file diff."""
 
     def test_multi_file_returns_correct_count(self) -> None:
         result = parse_diff(SAMPLE_MULTI_FILE_DIFF)
@@ -212,7 +212,7 @@ class TestParseMultiFileDiff:
 
 
 class TestDetectNewFile:
-    """AC3: Detect new file."""
+    """Detect new file."""
 
     def test_new_file_flag_is_set(self) -> None:
         result = parse_diff(SAMPLE_NEW_FILE_DIFF)
@@ -229,7 +229,7 @@ class TestDetectNewFile:
 
 
 class TestDetectDeletedFile:
-    """AC4: Detect deleted file."""
+    """Detect deleted file."""
 
     def test_deleted_file_flag_is_set(self) -> None:
         result = parse_diff(SAMPLE_DELETED_FILE_DIFF)
@@ -246,7 +246,7 @@ class TestDetectDeletedFile:
 
 
 class TestDetectRenamedFile:
-    """AC5: Detect renamed file."""
+    """Detect renamed file."""
 
     def test_renamed_file_flag_is_set(self) -> None:
         result = parse_diff(SAMPLE_RENAMED_FILE_DIFF)
@@ -267,7 +267,7 @@ class TestDetectRenamedFile:
 
 
 class TestDetectRenamedFileWithChanges:
-    """AC6: Detect renamed file with changes."""
+    """Detect renamed file with changes."""
 
     def test_renamed_with_changes_flag_is_set(self) -> None:
         result = parse_diff(SAMPLE_RENAMED_WITH_CHANGES_DIFF)
@@ -284,7 +284,7 @@ class TestDetectRenamedFileWithChanges:
 
 
 class TestParseHunkHeaderStandard:
-    """AC7: Parse hunk headers - standard format."""
+    """Parse hunk headers - standard format."""
 
     def test_standard_hunk_header_values(self) -> None:
         result = parse_diff(SAMPLE_HUNK_WITH_CONTEXT_TEXT_DIFF)
@@ -296,7 +296,7 @@ class TestParseHunkHeaderStandard:
 
 
 class TestParseHunkHeaderSingleLine:
-    """AC8: Parse hunk headers - single line (no count)."""
+    """Parse hunk headers - single line (no count)."""
 
     def test_single_line_hunk_header_defaults_count_to_one(self) -> None:
         result = parse_diff(SAMPLE_SINGLE_LINE_HUNK_DIFF)
@@ -308,7 +308,7 @@ class TestParseHunkHeaderSingleLine:
 
 
 class TestParseHunkHeaderWithContext:
-    """AC9: Parse hunk headers - with context text."""
+    """Parse hunk headers - with context text."""
 
     def test_hunk_header_with_context_text_parses_correctly(self) -> None:
         result = parse_diff(SAMPLE_HUNK_WITH_CONTEXT_TEXT_DIFF)
@@ -318,7 +318,7 @@ class TestParseHunkHeaderWithContext:
 
 
 class TestParseMultipleHunks:
-    """AC10: Parse multiple hunks in single file."""
+    """Parse multiple hunks in single file."""
 
     def test_multiple_hunks_count(self) -> None:
         result = parse_diff(SAMPLE_MULTIPLE_HUNKS_DIFF)
@@ -334,7 +334,7 @@ class TestParseMultipleHunks:
 
 
 class TestBinaryFile:
-    """AC11: Handle binary files - skip gracefully."""
+    """Handle binary files - skip gracefully."""
 
     def test_binary_file_flag_is_set(self) -> None:
         result = parse_diff(SAMPLE_BINARY_FILE_DIFF)
@@ -347,7 +347,7 @@ class TestBinaryFile:
 
 
 class TestMixedBinaryTextFiles:
-    """AC12: Handle mixed binary and text files."""
+    """Handle mixed binary and text files."""
 
     def test_mixed_returns_correct_count(self) -> None:
         result = parse_diff(SAMPLE_MIXED_BINARY_TEXT_DIFF)
@@ -367,7 +367,7 @@ class TestMixedBinaryTextFiles:
 
 
 class TestEmptyDiff:
-    """AC13: Empty diff returns empty list."""
+    """Empty diff returns empty list."""
 
     def test_empty_string_returns_empty_list(self) -> None:
         assert parse_diff("") == []
@@ -377,7 +377,7 @@ class TestEmptyDiff:
 
 
 class TestWhitespaceOnlyDiff:
-    """AC14: Whitespace-only diff returns empty list."""
+    """Whitespace-only diff returns empty list."""
 
     def test_spaces_only(self) -> None:
         assert parse_diff("   ") == []
@@ -393,7 +393,7 @@ class TestWhitespaceOnlyDiff:
 
 
 class TestModeChangeOnly:
-    """AC15: File mode change only (no content)."""
+    """File mode change only (no content)."""
 
     def test_mode_changed_flag_is_set(self) -> None:
         result = parse_diff(SAMPLE_MODE_CHANGE_DIFF)
@@ -406,7 +406,7 @@ class TestModeChangeOnly:
 
 
 class TestParseDiffLines:
-    """AC16: Parse diff lines correctly."""
+    """Parse diff lines correctly."""
 
     def test_added_lines_have_plus_type(self) -> None:
         result = parse_diff(SAMPLE_SINGLE_FILE_DIFF)
@@ -440,7 +440,7 @@ class TestParseDiffLines:
 
 
 class TestFilePathsWithSpaces:
-    """AC17: Handle file paths with spaces."""
+    """Handle file paths with spaces."""
 
     def test_path_with_space_parsed_correctly(self) -> None:
         result = parse_diff(SAMPLE_SPACE_IN_PATH_DIFF)
@@ -449,7 +449,7 @@ class TestFilePathsWithSpaces:
 
 
 class TestFilePathsWithSpecialChars:
-    """AC18: Handle file paths with special characters."""
+    """Handle file paths with special characters."""
 
     def test_unicode_path_parsed_correctly(self) -> None:
         result = parse_diff(SAMPLE_UNICODE_PATH_DIFF)
@@ -458,11 +458,11 @@ class TestFilePathsWithSpecialChars:
 
 
 class TestIsGitRepo:
-    """AC19-20: is_git_repo."""
+    """is_git_repo."""
 
     @patch("diffguard.git.subprocess.run")
     def test_returns_true_for_valid_repo(self, mock_run: MagicMock) -> None:
-        """AC19: is_git_repo returns True for valid repo."""
+        """is_git_repo returns True for valid repo."""
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "true\n"
@@ -472,7 +472,7 @@ class TestIsGitRepo:
 
     @patch("diffguard.git.subprocess.run")
     def test_returns_false_for_non_repo(self, mock_run: MagicMock) -> None:
-        """AC20: is_git_repo returns False for non-repo."""
+        """is_git_repo returns False for non-repo."""
         mock_result = MagicMock()
         mock_result.returncode = 128
         mock_result.stderr = "fatal: not a git repository\n"
@@ -486,11 +486,11 @@ class TestIsGitRepo:
 
 
 class TestGetStagedDiff:
-    """AC21-22: get_staged_diff."""
+    """get_staged_diff."""
 
     @patch("diffguard.git.subprocess.run")
     def test_returns_diff_string(self, mock_run: MagicMock) -> None:
-        """AC21: get_staged_diff returns diff string."""
+        """get_staged_diff returns diff string."""
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = SAMPLE_SINGLE_FILE_DIFF
@@ -501,7 +501,7 @@ class TestGetStagedDiff:
 
     @patch("diffguard.git.subprocess.run")
     def test_returns_empty_for_no_staged_changes(self, mock_run: MagicMock) -> None:
-        """AC22: get_staged_diff returns empty for no staged changes."""
+        """get_staged_diff returns empty for no staged changes."""
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = ""

@@ -34,11 +34,11 @@ SINGLE_LINE_HUNK = DiffHunk(old_start=48, old_count=1, new_start=50, new_count=1
 DELETION_HUNK = DiffHunk(old_start=20, old_count=3, new_start=20, new_count=0)
 
 
-# === Tests: expand_hunk (AC 1-7) ===
+# === Tests: expand_hunk ===
 
 
 class TestExpandHunkStandard:
-    """AC1: Standard expansion with default lines."""
+    """Standard expansion with default lines."""
 
     def test_standard_expansion_start(self) -> None:
         region = expand_hunk(STANDARD_HUNK, expansion=3)
@@ -50,7 +50,7 @@ class TestExpandHunkStandard:
 
 
 class TestExpandHunkConfigurable:
-    """AC2: Expansion is configurable."""
+    """Expansion is configurable."""
 
     def test_expansion_of_5(self) -> None:
         region = expand_hunk(STANDARD_HUNK, expansion=5)
@@ -64,7 +64,7 @@ class TestExpandHunkConfigurable:
 
 
 class TestExpandHunkClampStart:
-    """AC3: Expansion clamps to line 1 at start of file."""
+    """Expansion clamps to line 1 at start of file."""
 
     def test_clamp_to_line_1(self) -> None:
         region = expand_hunk(AT_START_HUNK, expansion=5)
@@ -72,7 +72,7 @@ class TestExpandHunkClampStart:
 
 
 class TestExpandHunkClampEnd:
-    """AC4: Expansion clamps to file_length at end of file."""
+    """Expansion clamps to file_length at end of file."""
 
     def test_clamp_to_file_length(self) -> None:
         region = expand_hunk(NEAR_END_HUNK, expansion=5, file_length=100)
@@ -80,7 +80,7 @@ class TestExpandHunkClampEnd:
 
 
 class TestExpandHunkClampBoth:
-    """AC5: Expansion clamps both ends for small file."""
+    """Expansion clamps both ends for small file."""
 
     def test_clamp_both_ends(self) -> None:
         region = expand_hunk(AT_START_HUNK, expansion=50, file_length=10)
@@ -89,7 +89,7 @@ class TestExpandHunkClampBoth:
 
 
 class TestExpandHunkZeroExpansion:
-    """AC6: Zero expansion returns exact hunk range."""
+    """Zero expansion returns exact hunk range."""
 
     def test_zero_expansion(self) -> None:
         region = expand_hunk(STANDARD_HUNK, expansion=0)
@@ -98,7 +98,7 @@ class TestExpandHunkZeroExpansion:
 
 
 class TestExpandHunkSingleLine:
-    """AC7: Single-line hunk and pure deletion hunk."""
+    """Single-line hunk and pure deletion hunk."""
 
     def test_single_line_hunk(self) -> None:
         region = expand_hunk(SINGLE_LINE_HUNK, expansion=3)
@@ -112,11 +112,11 @@ class TestExpandHunkSingleLine:
         assert region.end_line == 23  # 20 + 3
 
 
-# === Tests: merge_regions (AC 8-16) ===
+# === Tests: merge_regions ===
 
 
 class TestMergeOverlapping:
-    """AC8: Overlapping regions are merged."""
+    """Overlapping regions are merged."""
 
     def test_overlapping_regions_merge(self) -> None:
         regions = [Region(start_line=1, end_line=10), Region(start_line=5, end_line=15)]
@@ -127,7 +127,7 @@ class TestMergeOverlapping:
 
 
 class TestMergeAdjacent:
-    """AC9: Adjacent regions (touching) are merged."""
+    """Adjacent regions (touching) are merged."""
 
     def test_adjacent_regions_merge(self) -> None:
         regions = [Region(start_line=1, end_line=10), Region(start_line=11, end_line=20)]
@@ -138,7 +138,7 @@ class TestMergeAdjacent:
 
 
 class TestMergeGapOfOne:
-    """AC10: Regions with a gap of 1 line are NOT merged."""
+    """Regions with a gap of 1 line are NOT merged."""
 
     def test_gap_of_one_not_merged(self) -> None:
         regions = [Region(start_line=1, end_line=10), Region(start_line=12, end_line=20)]
@@ -147,7 +147,7 @@ class TestMergeGapOfOne:
 
 
 class TestMergeNonOverlapping:
-    """AC11: Non-overlapping regions stay separate."""
+    """Non-overlapping regions stay separate."""
 
     def test_non_overlapping_stay_separate(self) -> None:
         regions = [Region(start_line=1, end_line=5), Region(start_line=20, end_line=25)]
@@ -160,7 +160,7 @@ class TestMergeNonOverlapping:
 
 
 class TestMergeUnsorted:
-    """AC12: Unsorted input is handled correctly."""
+    """Unsorted input is handled correctly."""
 
     def test_unsorted_input_sorted_and_merged(self) -> None:
         regions = [Region(start_line=20, end_line=30), Region(start_line=1, end_line=10)]
@@ -171,7 +171,7 @@ class TestMergeUnsorted:
 
 
 class TestMergeFullyContained:
-    """AC13: Fully contained region is absorbed."""
+    """Fully contained region is absorbed."""
 
     def test_contained_region_absorbed(self) -> None:
         regions = [Region(start_line=1, end_line=20), Region(start_line=5, end_line=10)]
@@ -182,7 +182,7 @@ class TestMergeFullyContained:
 
 
 class TestMergeSingle:
-    """AC14: Single region returns copy."""
+    """Single region returns copy."""
 
     def test_single_region_returns_copy(self) -> None:
         original = Region(start_line=5, end_line=15)
@@ -194,7 +194,7 @@ class TestMergeSingle:
 
 
 class TestMergeEmpty:
-    """AC15: Empty list returns empty list."""
+    """Empty list returns empty list."""
 
     def test_empty_list_returns_empty(self) -> None:
         result = merge_regions([])
@@ -202,7 +202,7 @@ class TestMergeEmpty:
 
 
 class TestMergeChain:
-    """AC16: Chain of overlapping regions all merge into one."""
+    """Chain of overlapping regions all merge into one."""
 
     def test_chain_merge(self) -> None:
         regions = [
@@ -216,7 +216,7 @@ class TestMergeChain:
         assert result[0].end_line == 30
 
 
-# === Tests: read_file_lines (AC 17-22) ===
+# === Tests: read_file_lines ===
 
 
 @pytest.fixture
@@ -229,7 +229,7 @@ def sample_file(tmp_path: Path) -> Path:
 
 
 class TestReadFileLinesValid:
-    """AC17: Read valid file returns correct lines."""
+    """Read valid file returns correct lines."""
 
     def test_reads_100_lines(self, sample_file: Path) -> None:
         lines = read_file_lines(sample_file)
@@ -245,7 +245,7 @@ class TestReadFileLinesValid:
 
 
 class TestReadFileLinesEmpty:
-    """AC18: Empty file returns empty list."""
+    """Empty file returns empty list."""
 
     def test_empty_file_returns_empty_list(self, tmp_path: Path) -> None:
         p = tmp_path / "empty.py"
@@ -255,7 +255,7 @@ class TestReadFileLinesEmpty:
 
 
 class TestReadFileLinesNotFound:
-    """AC19: Missing file raises FileNotFoundError."""
+    """Missing file raises FileNotFoundError."""
 
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         p = tmp_path / "nonexistent.py"
@@ -264,7 +264,7 @@ class TestReadFileLinesNotFound:
 
 
 class TestReadFileLinesBinary:
-    """AC20: Binary file raises ContextError."""
+    """Binary file raises ContextError."""
 
     def test_binary_file_raises_context_error(self, tmp_path: Path) -> None:
         p = tmp_path / "binary.dat"
@@ -274,7 +274,7 @@ class TestReadFileLinesBinary:
 
 
 class TestReadFileLinesPreservesContent:
-    """AC21: File content is preserved (tabs, spaces, indentation)."""
+    """File content is preserved (tabs, spaces, indentation)."""
 
     def test_preserves_tabs_and_spaces(self, tmp_path: Path) -> None:
         p = tmp_path / "indented.py"
@@ -288,7 +288,7 @@ class TestReadFileLinesPreservesContent:
 
 
 class TestReadFileLinesMixedEndings:
-    """AC22: Mixed line endings handled correctly."""
+    """Mixed line endings handled correctly."""
 
     def test_mixed_line_endings(self, tmp_path: Path) -> None:
         p = tmp_path / "mixed.txt"
@@ -298,11 +298,11 @@ class TestReadFileLinesMixedEndings:
         assert lines == ["unix", "windows", "old_mac", "end"]
 
 
-# === Tests: build_file_regions (AC 23) ===
+# === Tests: build_file_regions ===
 
 
 class TestNewFileEntireRegion:
-    """AC23: New file returns entire file as single region."""
+    """New file returns entire file as single region."""
 
     def test_new_file_returns_full_region(self) -> None:
         diff_file = DiffFile(
