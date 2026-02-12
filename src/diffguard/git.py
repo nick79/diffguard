@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 
 from diffguard.exceptions import GitError
 
+_SUBPROCESS_TIMEOUT = 30
+
 HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 
 
@@ -53,9 +55,10 @@ def is_git_repo() -> bool:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_SUBPROCESS_TIMEOUT,
         )
         return result.returncode == 0
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
@@ -74,9 +77,13 @@ def get_staged_diff() -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_SUBPROCESS_TIMEOUT,
         )
     except FileNotFoundError as e:
         msg = "git is not installed or not in PATH"
+        raise GitError(msg) from e
+    except subprocess.TimeoutExpired as e:
+        msg = "git diff --cached timed out"
         raise GitError(msg) from e
 
     if result.returncode != 0:
@@ -117,8 +124,25 @@ def _parse_diff_git_header(line: str) -> tuple[str, str]:
     return rest, rest
 
 
+_C_ESCAPE_MAP: dict[str, str] = {
+    "\\": "\\",
+    '"': '"',
+    "n": "\n",
+    "t": "\t",
+    "r": "\r",
+    "a": "\a",
+    "b": "\b",
+    "f": "\f",
+    "v": "\v",
+}
+
+
 def _parse_c_quoted(s: str) -> tuple[str, str]:
-    """Parse a C-style quoted string, returning (unquoted_content, remainder)."""
+    """Parse a C-style quoted string, returning (unquoted_content, remainder).
+
+    Handles standard C escape sequences (\\n, \\t, etc.) and octal escapes
+    (\\NNN) as used by git's C-style path quoting.
+    """
     if not s.startswith('"'):
         idx = s.find(" ")
         if idx == -1:
@@ -129,8 +153,23 @@ def _parse_c_quoted(s: str) -> tuple[str, str]:
     result: list[str] = []
     while i < len(s):
         if s[i] == "\\" and i + 1 < len(s):
-            result.append(s[i + 1])
-            i += 2
+            next_ch = s[i + 1]
+            if next_ch in _C_ESCAPE_MAP:
+                result.append(_C_ESCAPE_MAP[next_ch])
+                i += 2
+            elif next_ch.isdigit():
+                # Octal escape: up to 3 digits
+                octal = next_ch
+                for j in range(i + 2, min(i + 4, len(s))):
+                    if s[j].isdigit() and int(s[j]) < 8:
+                        octal += s[j]
+                    else:
+                        break
+                result.append(chr(int(octal, 8)))
+                i += 1 + len(octal)
+            else:
+                result.append(next_ch)
+                i += 2
         elif s[i] == '"':
             return "".join(result), s[i + 1 :]
         else:
