@@ -7,6 +7,9 @@
 # Number of lines to expand around each changed hunk
 # hunk_expansion_lines = 50
 
+# Maximum lines for scope extraction before truncation
+# scope_size_limit = 200
+
 # Maximum concurrent API calls
 # max_concurrent_api_calls = 5
 
