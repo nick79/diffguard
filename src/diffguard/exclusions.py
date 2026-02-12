@@ -132,6 +132,11 @@ def _matches_pattern(file_path: str, pattern: str) -> bool:
 
     Patterns containing "/" are matched against the full path.
     Patterns without "/" are matched against the basename only.
+
+    Note: Uses fnmatch, where ``*`` matches everything including ``/``.
+    The ``**`` glob syntax is not distinctly supported — ``**`` behaves
+    identically to ``*``.  This is acceptable because basename-only
+    matching already handles the common deep-path cases.
     """
     path_lower = file_path.lower()
     pattern_lower = pattern.lower()
@@ -141,6 +146,17 @@ def _matches_pattern(file_path: str, pattern: str) -> bool:
 
     basename = path_lower.rsplit("/", 1)[-1]
     return fnmatch.fnmatch(basename, pattern_lower)
+
+
+_DEFAULT_CONFIG: DiffguardConfig | None = None
+
+
+def _get_default_config() -> DiffguardConfig:
+    """Return a lazily-initialised default config (avoids repeated Pydantic validation)."""
+    global _DEFAULT_CONFIG  # noqa: PLW0603
+    if _DEFAULT_CONFIG is None:
+        _DEFAULT_CONFIG = DiffguardConfig()
+    return _DEFAULT_CONFIG
 
 
 def is_sensitive_file(file_path: str, config: DiffguardConfig | None = None) -> bool:
@@ -154,7 +170,7 @@ def is_sensitive_file(file_path: str, config: DiffguardConfig | None = None) -> 
         True if the file matches a sensitive pattern.
     """
     if config is None:
-        config = DiffguardConfig()
+        config = _get_default_config()
 
     patterns = _get_effective_patterns(config)
     return any(_matches_pattern(file_path, pattern) for pattern in patterns)

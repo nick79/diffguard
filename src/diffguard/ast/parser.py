@@ -27,6 +27,11 @@ def _load_language(language: Language) -> TSLanguage:
             raise UnsupportedLanguageError(f"No tree-sitter grammar installed for {language.value}")
 
 
+def clear_parser_cache() -> None:
+    """Clear the cached tree-sitter parsers (useful for testing)."""
+    _parser_cache.clear()
+
+
 def get_parser(language: Language) -> Parser:
     """Return a cached tree-sitter Parser for the given language.
 

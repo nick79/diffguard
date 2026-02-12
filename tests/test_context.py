@@ -98,6 +98,15 @@ class TestExpandHunkZeroExpansion:
         assert region.end_line == 14  # 10 + 5 - 1
 
 
+class TestExpandHunkZeroFileLength:
+    """file_length=0 returns an empty region."""
+
+    def test_zero_file_length_returns_empty_region(self) -> None:
+        region = expand_hunk(STANDARD_HUNK, expansion=3, file_length=0)
+        assert region.start_line == 1
+        assert region.end_line == 0
+
+
 class TestExpandHunkSingleLine:
     """Single-line hunk and pure deletion hunk."""
 
@@ -256,11 +265,11 @@ class TestReadFileLinesEmpty:
 
 
 class TestReadFileLinesNotFound:
-    """Missing file raises FileNotFoundError."""
+    """Missing file raises ContextError."""
 
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         p = tmp_path / "nonexistent.py"
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ContextError, match="File not found"):
             read_file_lines(p)
 
 

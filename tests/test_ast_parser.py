@@ -4,8 +4,7 @@ import logging
 
 import pytest
 
-from diffguard.ast import Language, detect_language, get_parser, parse_file
-from diffguard.ast.parser import _parser_cache
+from diffguard.ast import Language, clear_parser_cache, detect_language, get_parser, parse_file
 from diffguard.exceptions import UnsupportedLanguageError
 
 # ---------------------------------------------------------------------------
@@ -199,7 +198,7 @@ class TestGetParser:
 
     def setup_method(self) -> None:
         """Clear parser cache between tests."""
-        _parser_cache.clear()
+        clear_parser_cache()
 
     def test_returns_parser_for_python(self) -> None:
         """get_parser returns a working Parser for Python."""

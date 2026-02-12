@@ -37,6 +37,9 @@ def expand_hunk(hunk: DiffHunk, expansion: int, file_length: int | None = None) 
     Returns:
         A Region covering the expanded hunk range.
     """
+    if file_length is not None and file_length <= 0:
+        return Region(start_line=1, end_line=0)
+
     hunk_start = hunk.new_start
     hunk_end = hunk.new_start + max(hunk.new_count, 1) - 1
 
@@ -87,12 +90,11 @@ def read_file_lines(path: Path) -> list[str]:
         List of lines (without line terminators).
 
     Raises:
-        FileNotFoundError: If the file does not exist.
-        ContextError: If the file appears to be binary.
+        ContextError: If the file does not exist or appears to be binary.
     """
     if not path.is_file():
         msg = f"File not found: {path}"
-        raise FileNotFoundError(msg)
+        raise ContextError(msg)
 
     content = path.read_bytes()
 
