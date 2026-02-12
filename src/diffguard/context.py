@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from diffguard.exceptions import ContextError
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -97,7 +100,11 @@ def read_file_lines(path: Path) -> list[str]:
         msg = f"Binary file cannot be read as text: {path}"
         raise ContextError(msg)
 
-    text = content.decode("utf-8", errors="replace")
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        logger.warning("File contains malformed UTF-8, lossy decoding applied: %s", path)
+        text = content.decode("utf-8", errors="replace")
     return text.splitlines()
 
 

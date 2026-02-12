@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import pytest
@@ -296,6 +297,18 @@ class TestReadFileLinesMixedEndings:
         p.write_bytes(b"unix\nwindows\r\nold_mac\rend")
         lines = read_file_lines(p)
         assert lines == ["unix", "windows", "old_mac", "end"]
+
+
+class TestReadFileLinesInvalidUtf8:
+    """Malformed UTF-8 is decoded with warning."""
+
+    def test_malformed_utf8_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        p = tmp_path / "bad_utf8.py"
+        p.write_bytes(b"x = 1\nname = '\xff\xfe'\n")
+        with caplog.at_level(logging.WARNING, logger="diffguard.context"):
+            lines = read_file_lines(p)
+        assert len(lines) == 2
+        assert any("malformed UTF-8" in r.message for r in caplog.records)
 
 
 # === Tests: build_file_regions ===

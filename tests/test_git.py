@@ -1,11 +1,12 @@
 """Tests for git diff parsing and extraction."""
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from diffguard.exceptions import GitError
-from diffguard.git import DiffFile, DiffHunk, get_staged_diff, is_git_repo, parse_diff
+from diffguard.git import DiffFile, DiffHunk, _parse_c_quoted, get_staged_diff, is_git_repo, parse_diff
 
 # === Test fixtures (inline as specified by TASKS.md) ===
 
@@ -484,6 +485,10 @@ class TestIsGitRepo:
     def test_returns_false_when_git_not_installed(self, _mock_run: MagicMock) -> None:
         assert is_git_repo() is False
 
+    @patch("diffguard.git.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="git", timeout=30))
+    def test_returns_false_on_timeout(self, _mock_run: MagicMock) -> None:
+        assert is_git_repo() is False
+
 
 class TestGetStagedDiff:
     """get_staged_diff."""
@@ -524,6 +529,41 @@ class TestGetStagedDiff:
 
         with pytest.raises(GitError, match="git diff --cached failed"):
             get_staged_diff()
+
+    @patch("diffguard.git.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="git", timeout=30))
+    def test_raises_git_error_on_timeout(self, _mock_run: MagicMock) -> None:
+        with pytest.raises(GitError, match="timed out"):
+            get_staged_diff()
+
+
+class TestCQuotedParsing:
+    """C-style quoted string parsing."""
+
+    def test_standard_escapes(self) -> None:
+        content, _ = _parse_c_quoted(r'"hello\nworld\t!"')
+        assert content == "hello\nworld\t!"
+
+    def test_backslash_escape(self) -> None:
+        content, _ = _parse_c_quoted(r'"path\\to\\file"')
+        assert content == "path\\to\\file"
+
+    def test_quote_escape(self) -> None:
+        content, _ = _parse_c_quoted(r'"say \"hi\""')
+        assert content == 'say "hi"'
+
+    def test_octal_escape(self) -> None:
+        content, _ = _parse_c_quoted(r'"caf\303\251.py"')
+        assert content == "caf\u00c3\u00a9.py"
+
+    def test_remainder_returned(self) -> None:
+        content, remainder = _parse_c_quoted('"a/b" "c/d"')
+        assert content == "a/b"
+        assert remainder == ' "c/d"'
+
+    def test_unquoted_fallback(self) -> None:
+        content, remainder = _parse_c_quoted("simple rest")
+        assert content == "simple"
+        assert remainder == "rest"
 
 
 class TestDiffFileDataclass:

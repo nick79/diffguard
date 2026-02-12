@@ -1,10 +1,15 @@
 """Tests for configuration loading and validation."""
 
+from __future__ import annotations
+
 import os
 import stat
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from diffguard.config import CONFIG_FILENAME, DiffguardConfig, find_config_file, load_config
 from diffguard.exceptions import ConfigError
@@ -168,14 +173,9 @@ class TestFindConfigFile:
         subdir = tmp_path / "isolated"
         subdir.mkdir()
 
-        # Searching only in the isolated directory shouldn't find anything
-        # unless there's a .diffguard.toml higher up
         found = find_config_file(subdir)
 
-        # This may find a file in the actual filesystem above tmp_path
-        # For a pure test, we accept None or any Path
-        # The key is it doesn't crash
-        assert found is None or isinstance(found, Path)
+        assert found is None
 
     def test_load_config_from_parent_directory(self, tmp_path: Path) -> None:
         """load_config() finds config in parent directory."""
