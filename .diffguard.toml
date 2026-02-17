@@ -1,5 +1,5 @@
 # Diffguard Configuration
-# See README.md for all available options
+# All options shown with their default values.
 
 # LLM model for security analysis
 # model = "gpt-5.2"
@@ -10,11 +10,20 @@
 # Maximum lines for scope extraction before truncation
 # scope_size_limit = 200
 
+# How deep to follow imports for symbol resolution (0 = disabled)
+# symbol_resolution_depth = 1
+
+# Patterns identifying third-party code paths (excluded from symbol resolution)
+# third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]
+
 # Maximum concurrent API calls
 # max_concurrent_api_calls = 5
 
+# API timeout in seconds
+# timeout = 120
+
 # Additional glob patterns for sensitive file exclusion (added to built-in defaults)
-# sensitive_patterns = ["*.secret.json", "**/private/**"]
+# sensitive_patterns = []
 
 # Built-in sensitive file patterns are enabled by default for security.
 # Set to false to disable them (use only your custom patterns).
