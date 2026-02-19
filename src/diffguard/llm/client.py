@@ -18,15 +18,12 @@ from diffguard.exceptions import (
     LLMTimeoutError,
     MissingAPIKeyError,
 )
+from diffguard.llm.prompts import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = (
-    "You are a security analyst performing code review. "
-    "Analyze the provided code changes for security vulnerabilities. "
-    "Classify findings using OWASP Top 10 and CWE identifiers. "
-    "Respond with a JSON object containing a 'findings' array."
-)
+# Re-export for backwards compatibility
+__all__ = ["SYSTEM_PROMPT", "OpenAIClient"]
 
 
 def _is_context_length_error(error: openai.BadRequestError) -> bool:

@@ -19,7 +19,8 @@ from diffguard.exceptions import (
     LLMTimeoutError,
     MissingAPIKeyError,
 )
-from diffguard.llm.client import SYSTEM_PROMPT, OpenAIClient
+from diffguard.llm.client import OpenAIClient
+from diffguard.llm.prompts import SYSTEM_PROMPT
 
 # --- Helpers ---
 
