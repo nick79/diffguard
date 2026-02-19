@@ -1,15 +1,12 @@
 """Prompt construction for LLM security analysis."""
 
 from dataclasses import dataclass, field
+from typing import Literal
 
-from diffguard.ast.scope import Scope
-
-# Re-export Scope for convenience — callers building CodeContext need it
 __all__ = [
     "SYSTEM_PROMPT",
     "CodeContext",
     "DiffLine",
-    "Scope",
     "ScopeContext",
     "SymbolDef",
     "build_user_prompt",
@@ -21,7 +18,7 @@ class DiffLine:
     """A single changed line from a diff."""
 
     line_num: int
-    change_type: str  # "+", "-", or " "
+    change_type: Literal["+", "-", " "]
     content: str
 
 
@@ -191,20 +188,17 @@ def _truncate_prompt(contexts: list[CodeContext], max_tokens: int) -> str:
     if _estimate_tokens(prompt) <= max_tokens:
         return prompt
 
-    # Step 2: Also remove symbols
+    # Step 2: Also remove symbols (reuse already-stripped scopes)
     fully_stripped = [
         CodeContext(
             file_path=ctx.file_path,
             diff_lines=ctx.diff_lines,
             expanded_region=ctx.expanded_region,
             region_start_line=ctx.region_start_line,
-            scopes=[
-                ScopeContext(type=s.type, name=s.name, start_line=s.start_line, end_line=s.end_line, source="")
-                for s in ctx.scopes
-            ],
+            scopes=ctx.scopes,
             symbols={},
         )
-        for ctx in contexts
+        for ctx in scopes_stripped
     ]
 
     sections = [_format_file_section(ctx) for ctx in fully_stripped]

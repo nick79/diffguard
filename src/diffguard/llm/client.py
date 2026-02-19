@@ -22,7 +22,6 @@ from diffguard.llm.prompts import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-# Re-export for backwards compatibility
 __all__ = ["SYSTEM_PROMPT", "OpenAIClient"]
 
 
