@@ -59,14 +59,14 @@ def _make_diff_file(path: str) -> DiffFile:
     return DiffFile(old_path=path, new_path=path)
 
 
-# ── AC 1: .env file excluded ──
+# ── .env file excluded ──
 
 
 def test_env_file_excluded() -> None:
     assert is_sensitive_file(".env") is True
 
 
-# ── AC 2: .env.* variants excluded ──
+# ── .env.* variants excluded ──
 
 
 @pytest.mark.parametrize("path", [".env.local", ".env.production", ".env.development"])
@@ -74,7 +74,7 @@ def test_env_variants_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 3: Private key files - common names ──
+# ── Private key files - common names ──
 
 
 @pytest.mark.parametrize("path", ["id_rsa", "id_ed25519", "id_dsa"])
@@ -82,7 +82,7 @@ def test_ssh_key_files_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 4: Private key files - .key extension ──
+# ── Private key files - .key extension ──
 
 
 @pytest.mark.parametrize("path", ["server.key", "private.key", "ssl.key"])
@@ -90,7 +90,7 @@ def test_key_extension_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 5: Private key files - .pem extension ──
+# ── Private key files - .pem extension ──
 
 
 @pytest.mark.parametrize("path", ["certificate.pem", "private.pem"])
@@ -98,7 +98,7 @@ def test_pem_extension_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 6: Certificate files excluded ──
+# ── Certificate files excluded ──
 
 
 @pytest.mark.parametrize("path", ["server.crt", "ca-bundle.crt"])
@@ -106,7 +106,7 @@ def test_certificate_files_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 7: Secrets/credentials files excluded ──
+# ── Secrets/credentials files excluded ──
 
 
 @pytest.mark.parametrize("path", ["secrets.json", "credentials.json", "secrets.yaml"])
@@ -114,7 +114,7 @@ def test_secrets_credentials_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 8: AWS credentials excluded ──
+# ── AWS credentials excluded ──
 
 
 def test_aws_credentials_excluded() -> None:
@@ -125,7 +125,7 @@ def test_aws_credentials_in_subpath() -> None:
     assert is_sensitive_file("home/user/.aws/credentials") is True
 
 
-# ── AC 9: GCP service account excluded ──
+# ── GCP service account excluded ──
 
 
 @pytest.mark.parametrize("path", ["service-account.json", "gcp-sa.json", "my-project-sa-key.json"])
@@ -133,7 +133,7 @@ def test_gcp_service_account_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 10: Terraform secrets excluded ──
+# ── Terraform secrets excluded ──
 
 
 @pytest.mark.parametrize("path", ["terraform.tfvars", "production.tfvars", "vars.tfvars.json"])
@@ -141,21 +141,21 @@ def test_terraform_vars_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 11: Rails master key excluded ──
+# ── Rails master key excluded ──
 
 
 def test_rails_master_key_excluded() -> None:
     assert is_sensitive_file("config/master.key") is True
 
 
-# ── AC 12: Docker secrets ──
+# ── Docker secrets ──
 
 
 def test_docker_compose_override_excluded() -> None:
     assert is_sensitive_file("docker-compose.override.yml") is True
 
 
-# ── AC 13: Keystore files excluded ──
+# ── Keystore files excluded ──
 
 
 @pytest.mark.parametrize("path", ["release.jks", "app.keystore", "cert.p12"])
@@ -163,21 +163,21 @@ def test_keystore_files_excluded(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 14: Normal code files not excluded ──
+# ── Normal code files not excluded ──
 
 
 def test_normal_code_not_excluded() -> None:
     assert is_sensitive_file("src/main.py") is False
 
 
-# ── AC 15: Test files not excluded ──
+# ── Test files not excluded ──
 
 
 def test_test_files_not_excluded() -> None:
     assert is_sensitive_file("tests/test_api.py") is False
 
 
-# ── AC 16: Documentation not excluded ──
+# ── Documentation not excluded ──
 
 
 @pytest.mark.parametrize("path", ["README.md", "docs/guide.md"])
@@ -185,7 +185,7 @@ def test_documentation_not_excluded(path: str) -> None:
     assert is_sensitive_file(path) is False
 
 
-# ── AC 17: Config files (non-sensitive) not excluded ──
+# ── Config files (non-sensitive) not excluded ──
 
 
 @pytest.mark.parametrize("path", ["package.json", "pyproject.toml"])
@@ -193,7 +193,7 @@ def test_nonsensitive_config_not_excluded(path: str) -> None:
     assert is_sensitive_file(path) is False
 
 
-# ── AC 18: User can extend patterns via config ──
+# ── User can extend patterns via config ──
 
 
 def test_user_custom_pattern() -> None:
@@ -201,7 +201,7 @@ def test_user_custom_pattern() -> None:
     assert is_sensitive_file("config.secret.json", config) is True
 
 
-# ── AC 19: User patterns add to defaults ──
+# ── User patterns add to defaults ──
 
 
 def test_user_patterns_add_to_defaults() -> None:
@@ -215,7 +215,7 @@ def test_user_patterns_add_to_defaults() -> None:
     assert is_sensitive_file(".env", config) is True
 
 
-# ── AC 20: User can disable default patterns ──
+# ── User can disable default patterns ──
 
 
 def test_disable_default_patterns() -> None:
@@ -229,7 +229,7 @@ def test_disable_default_patterns() -> None:
     assert is_sensitive_file(".env", config) is False
 
 
-# ── AC 21: Filter removes sensitive files ──
+# ── Filter removes sensitive files ──
 
 
 def test_filter_removes_sensitive_files() -> None:
@@ -247,7 +247,7 @@ def test_filter_removes_sensitive_files() -> None:
     assert "test.py" in kept_paths
 
 
-# ── AC 22: Filter reports excluded files ──
+# ── Filter reports excluded files ──
 
 
 def test_filter_reports_excluded_files() -> None:
@@ -264,7 +264,7 @@ def test_filter_reports_excluded_files() -> None:
     assert pattern == ".env"
 
 
-# ── AC 23: Filter handles empty list ──
+# ── Filter handles empty list ──
 
 
 def test_filter_empty_list() -> None:
@@ -273,7 +273,7 @@ def test_filter_empty_list() -> None:
     assert result.excluded == []
 
 
-# ── AC 24: Filter handles all sensitive ──
+# ── Filter handles all sensitive ──
 
 
 def test_filter_all_sensitive() -> None:
@@ -287,7 +287,7 @@ def test_filter_all_sensitive() -> None:
     assert len(result.excluded) == 2
 
 
-# ── AC 25: Case sensitivity handling ──
+# ── Case sensitivity handling ──
 
 
 @pytest.mark.parametrize("path", [".ENV", "SECRETS.JSON", "Id_Rsa"])
@@ -295,7 +295,7 @@ def test_case_insensitive_matching(path: str) -> None:
     assert is_sensitive_file(path) is True
 
 
-# ── AC 26: Path pattern matching (glob) ──
+# ── Path pattern matching (glob) ──
 
 
 def test_glob_path_pattern_matching() -> None:
@@ -305,7 +305,7 @@ def test_glob_path_pattern_matching() -> None:
     assert is_sensitive_file("config/secrets/api.json", config) is True
 
 
-# ── AC 27: Verbose shows exclusion reason (tested via FilterResult data) ──
+# ── Verbose shows exclusion reason (tested via FilterResult data) ──
 
 
 def test_filter_result_includes_pattern() -> None:
