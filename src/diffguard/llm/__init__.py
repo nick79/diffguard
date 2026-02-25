@@ -1,5 +1,12 @@
 """LLM integration for Diffguard security analysis."""
 
+from diffguard.llm.analyzer import (
+    AnalysisResult,
+    FileAnalysisError,
+    LLMClient,
+    analyze_file,
+    analyze_files,
+)
 from diffguard.llm.client import OpenAIClient
 from diffguard.llm.prompts import (
     SYSTEM_PROMPT,
@@ -18,14 +25,19 @@ from diffguard.llm.response import (
 
 __all__ = [
     "SYSTEM_PROMPT",
+    "AnalysisResult",
     "CodeContext",
     "ConfidenceLevel",
     "DiffLine",
+    "FileAnalysisError",
     "Finding",
+    "LLMClient",
     "OpenAIClient",
     "ScopeContext",
     "SeverityLevel",
     "SymbolDef",
+    "analyze_file",
+    "analyze_files",
     "build_user_prompt",
     "parse_llm_response",
 ]
