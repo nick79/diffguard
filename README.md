@@ -67,7 +67,22 @@ diffguard --output report.json
 
 # Verbose output
 diffguard --verbose
+
+# Show help
+diffguard --help
+
+# Show version
+diffguard --version
 ```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success (no findings, or no staged changes) |
+| 1 | Error (missing API key, config error, or git error) |
+| 2 | Not a git repository |
+| 130 | Interrupted (Ctrl+C) |
 
 ## Configuration
 
