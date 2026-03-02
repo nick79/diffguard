@@ -44,7 +44,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "FileContext",
+    "PreparedContext",
     "analyze_staged_changes",
+    "prepare_file_contexts",
 ]
 
 
@@ -60,6 +62,58 @@ class FileContext:
     scopes: list[ScopeContext] = field(default_factory=list)
     symbols: dict[str, SymbolDef] = field(default_factory=dict)
     is_new_file: bool = False
+
+
+@dataclass
+class PreparedContext:
+    """Intermediate result from file filtering and context building."""
+
+    file_contexts: list[FileContext] = field(default_factory=list)
+    code_contexts: list[CodeContext] = field(default_factory=list)
+    errors: list[FileAnalysisError] = field(default_factory=list)
+
+
+def prepare_file_contexts(
+    diff_files: list[DiffFile],
+    config: DiffguardConfig,
+    *,
+    project_root: Path | None = None,
+) -> PreparedContext:
+    """Filter diff files and build rich code contexts without calling the LLM.
+
+    Args:
+        diff_files: Parsed diff files from git.
+        config: Diffguard configuration.
+        project_root: Project root directory for file resolution. Defaults to cwd.
+
+    Returns:
+        PreparedContext with file contexts, code contexts, and any build errors.
+    """
+    root = project_root or Path.cwd()
+    analyzable = _filter_analyzable_files(diff_files, config)
+
+    if not analyzable:
+        return PreparedContext()
+
+    file_contexts: list[FileContext] = []
+    build_errors: list[FileAnalysisError] = []
+
+    for diff_file, language in analyzable:
+        try:
+            file_ctx = _build_file_context(diff_file, language, config, root)
+            file_contexts.append(file_ctx)
+        except (ContextError, OSError) as exc:
+            logger.error("Error building context for '%s': %s", diff_file.path, exc)
+            build_errors.append(
+                FileAnalysisError(
+                    file_path=diff_file.path,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+            )
+
+    code_contexts = [_file_context_to_code_context(fc) for fc in file_contexts]
+    return PreparedContext(file_contexts=file_contexts, code_contexts=code_contexts, errors=build_errors)
 
 
 async def analyze_staged_changes(
@@ -84,40 +138,22 @@ async def analyze_staged_changes(
     Returns:
         AnalysisResult with findings and any errors.
     """
-    root = project_root or Path.cwd()
-    analyzable = _filter_analyzable_files(diff_files, config)
+    prepared = prepare_file_contexts(diff_files, config, project_root=project_root)
 
-    if not analyzable:
-        return AnalysisResult()
-
-    file_contexts: list[FileContext] = []
-    build_errors: list[FileAnalysisError] = []
-
-    for diff_file, language in analyzable:
-        try:
-            file_ctx = _build_file_context(diff_file, language, config, root)
-            file_contexts.append(file_ctx)
-        except (ContextError, OSError) as exc:
-            logger.error("Error building context for '%s': %s", diff_file.path, exc)
-            build_errors.append(
-                FileAnalysisError(
-                    file_path=diff_file.path,
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
-            )
-
-    code_contexts = [_file_context_to_code_context(fc) for fc in file_contexts]
+    if not prepared.code_contexts:
+        result = AnalysisResult()
+        result.errors.extend(prepared.errors)
+        return result
 
     result = await analyze_files(
-        code_contexts,
+        prepared.code_contexts,
         client,
         max_concurrent=config.max_concurrent_api_calls,
         timeout_per_file=float(config.timeout),
         on_progress=on_progress,
     )
 
-    result.errors.extend(build_errors)
+    result.errors.extend(prepared.errors)
     return result
 
 

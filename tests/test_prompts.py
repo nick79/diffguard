@@ -6,8 +6,8 @@ from diffguard.llm.prompts import (
     DiffLine,
     ScopeContext,
     SymbolDef,
-    _estimate_tokens,
     build_user_prompt,
+    estimate_tokens,
 )
 
 # ---------------------------------------------------------------------------
@@ -334,10 +334,10 @@ class TestPromptTruncation:
         ctx = _make_large_context()
 
         full_prompt = build_user_prompt(ctx)
-        full_tokens = _estimate_tokens(full_prompt)
+        full_tokens = estimate_tokens(full_prompt)
 
         # Set limit so scope source must be dropped but symbols can stay
-        scope_source_tokens = _estimate_tokens(ctx.scopes[0].source)
+        scope_source_tokens = estimate_tokens(ctx.scopes[0].source)
         limit = full_tokens - scope_source_tokens + 100
 
         prompt = build_user_prompt(ctx, max_tokens=limit)

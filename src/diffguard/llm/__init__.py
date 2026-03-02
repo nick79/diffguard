@@ -15,6 +15,7 @@ from diffguard.llm.prompts import (
     ScopeContext,
     SymbolDef,
     build_user_prompt,
+    estimate_tokens,
 )
 from diffguard.llm.response import (
     ConfidenceLevel,
@@ -39,5 +40,6 @@ __all__ = [
     "analyze_file",
     "analyze_files",
     "build_user_prompt",
+    "estimate_tokens",
     "parse_llm_response",
 ]

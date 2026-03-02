@@ -10,6 +10,7 @@ __all__ = [
     "ScopeContext",
     "SymbolDef",
     "build_user_prompt",
+    "estimate_tokens",
 ]
 
 
@@ -117,7 +118,7 @@ _TRUNCATION_MARKER = "... [truncated for token limit]"
 _FOOTER = "Analyze the above code changes for security vulnerabilities."
 
 
-def _estimate_tokens(text: str) -> int:
+def estimate_tokens(text: str) -> int:
     """Estimate token count using a ~4 characters per token heuristic."""
     return len(text) // 4
 
@@ -146,7 +147,7 @@ def build_user_prompt(
 
     prompt = _assemble_prompt(contexts)
 
-    if max_tokens is None or _estimate_tokens(prompt) <= max_tokens:
+    if max_tokens is None or estimate_tokens(prompt) <= max_tokens:
         return prompt
 
     return _truncate_prompt(contexts, max_tokens)
@@ -185,7 +186,7 @@ def _truncate_prompt(contexts: list[CodeContext], max_tokens: int) -> str:
     sections = [_format_file_section(ctx) for ctx in scopes_stripped]
     prompt = "\n\n---\n\n".join(sections) + f"\n\n{_TRUNCATION_MARKER}\n\n{_FOOTER}"
 
-    if _estimate_tokens(prompt) <= max_tokens:
+    if estimate_tokens(prompt) <= max_tokens:
         return prompt
 
     # Step 2: Also remove symbols (reuse already-stripped scopes)
