@@ -93,6 +93,51 @@ def get_staged_diff() -> str:
     return result.stdout
 
 
+def get_commit_hash() -> str | None:
+    """Get the current HEAD commit hash.
+
+    Returns:
+        Full commit hash string, or None if in an empty repo or not a git repo.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT,
+        )
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip() or None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
+def get_branch_name() -> str | None:
+    """Get the current branch name.
+
+    Returns:
+        Branch name string, or None if HEAD is detached or not a git repo.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT,
+        )
+        if result.returncode != 0:
+            return None
+        name = result.stdout.strip()
+        if not name or name == "HEAD":
+            return None
+        return name
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
 def _parse_diff_git_header(line: str) -> tuple[str, str]:
     """Parse 'diff --git a/... b/...' to extract old and new paths.
 

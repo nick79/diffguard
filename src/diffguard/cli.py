@@ -12,10 +12,11 @@ from rich.console import Console
 
 from diffguard import __version__
 from diffguard.config import load_config
-from diffguard.exceptions import ConfigError, GitError
-from diffguard.git import get_staged_diff, is_git_repo, parse_diff
-from diffguard.llm import AnalysisResult, Finding, OpenAIClient, build_user_prompt, estimate_tokens
+from diffguard.exceptions import ConfigError, GitError, ReportWriteError
+from diffguard.git import get_branch_name, get_commit_hash, get_staged_diff, is_git_repo, parse_diff
+from diffguard.llm import AnalysisResult, OpenAIClient, build_user_prompt, estimate_tokens
 from diffguard.llm.analyzer import FileAnalysisError, analyze_files
+from diffguard.output.json_report import ReportMetadata, generate_report, print_report, write_report
 from diffguard.output.terminal import (
     build_stats,
     create_progress_spinner,
@@ -72,26 +73,6 @@ def _get_staged_diff_text() -> str:
     return raw_diff
 
 
-def _finding_to_dict(finding: Finding) -> dict[str, Any]:
-    """Serialize a Finding to a JSON-compatible dict."""
-    d: dict[str, Any] = {
-        "what": finding.what,
-        "why": finding.why,
-        "how_to_fix": finding.how_to_fix,
-        "severity": finding.severity.value,
-        "confidence": finding.confidence.value,
-    }
-    if finding.cwe_id is not None:
-        d["cwe_id"] = finding.cwe_id
-    if finding.owasp_category is not None:
-        d["owasp_category"] = finding.owasp_category
-    if finding.line_range is not None:
-        d["line_range"] = {"start": finding.line_range[0], "end": finding.line_range[1]}
-    if finding.file_path is not None:
-        d["file_path"] = finding.file_path
-    return d
-
-
 def _error_to_dict(error: FileAnalysisError) -> dict[str, str]:
     """Serialize a FileAnalysisError to a JSON-compatible dict."""
     return {
@@ -99,16 +80,6 @@ def _error_to_dict(error: FileAnalysisError) -> dict[str, str]:
         "error": error.error,
         "error_type": error.error_type,
     }
-
-
-def _serialize_result(result: AnalysisResult) -> dict[str, Any]:
-    """Serialize an AnalysisResult to a JSON-compatible dict."""
-    data: dict[str, Any] = {
-        "findings": [_finding_to_dict(f) for f in result.findings],
-    }
-    if result.errors:
-        data["errors"] = [_error_to_dict(e) for e in result.errors]
-    return data
 
 
 def _serialize_dry_run(token_estimates: list[tuple[str, int]], total: int) -> dict[str, Any]:
@@ -123,11 +94,10 @@ def _serialize_dry_run(token_estimates: list[tuple[str, int]], total: int) -> di
 def _write_json_file(data: dict[str, Any], path: Path) -> None:
     """Write JSON data to a file, creating parent directories as needed."""
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2) + "\n")
-    except OSError as exc:
+        write_report(data, path)
+    except ReportWriteError:
         typer.echo(f"Error: Permission denied writing to {path}", err=True)
-        raise typer.Exit(code=1) from exc
+        raise typer.Exit(code=1) from None
 
 
 def _compute_token_estimates(prepared: PreparedContext) -> list[tuple[str, int]]:
@@ -169,20 +139,23 @@ def _route_output(
     json_output: bool,
     output: Path | None,
     console: Console,
-    files_analyzed: int,
+    metadata: ReportMetadata,
 ) -> None:
     """Route analysis results to the appropriate output destinations."""
     if not json_output and not output:
-        _print_results(result, console, files_analyzed=files_analyzed)
+        _print_results(result, console, files_analyzed=metadata.files_analyzed)
         return
 
-    data = _serialize_result(result)
+    report = generate_report(result.findings, metadata)
+    if result.errors:
+        report["errors"] = [_error_to_dict(e) for e in result.errors]
+
     if json_output:
-        typer.echo(json.dumps(data, indent=2))
+        print_report(report)
     if output:
-        _write_json_file(data, output)
+        _write_json_file(report, output)
         if not json_output:
-            _print_results(result, console, files_analyzed=files_analyzed)
+            _print_results(result, console, files_analyzed=metadata.files_analyzed)
             console.print(f"Report saved to {output}")
     if json_output and _has_critical_or_high(result):
         raise typer.Exit(code=1)
@@ -284,6 +257,7 @@ async def _run(
 
     client = OpenAIClient(model=config.model, timeout=config.timeout)
     files_analyzed = 0
+    elapsed: float | None = None
 
     if verbose:
         token_estimates = _compute_token_estimates(prepared)
@@ -316,4 +290,11 @@ async def _run(
             result = await analyze_staged_changes(diff_files, config, client)
         files_analyzed = len(diff_files)
 
-    _route_output(result, json_output=json_output, output=output, console=console, files_analyzed=files_analyzed)
+    report_metadata = ReportMetadata(
+        files_analyzed=files_analyzed,
+        analysis_time_seconds=elapsed,
+        commit_hash=get_commit_hash(),
+        branch_name=get_branch_name(),
+    )
+
+    _route_output(result, json_output=json_output, output=output, console=console, metadata=report_metadata)

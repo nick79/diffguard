@@ -80,10 +80,14 @@ _ANALYZE = "diffguard.cli.analyze_staged_changes"
 _PREPARE = "diffguard.cli.prepare_file_contexts"
 _ANALYZE_FILES = "diffguard.cli.analyze_files"
 _CLIENT = "diffguard.cli.OpenAIClient"
+_COMMIT = "diffguard.cli.get_commit_hash"
+_BRANCH = "diffguard.cli.get_branch_name"
 _ENV = {"OPENAI_API_KEY": "test-key"}
 
 
 class TestVerboseFlag:
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE_FILES, new_callable=AsyncMock)
     @patch(_PREPARE)
     @patch(_CLIENT)
@@ -101,6 +105,8 @@ class TestVerboseFlag:
         _client: MagicMock,
         mock_prepare: MagicMock,
         mock_af: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_prepare.return_value = _make_prepared()
@@ -111,6 +117,8 @@ class TestVerboseFlag:
         assert result.exit_code == 0
         assert "completed in" in result.output.lower()
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE_FILES, new_callable=AsyncMock)
     @patch(_PREPARE)
     @patch(_CLIENT)
@@ -128,6 +136,8 @@ class TestVerboseFlag:
         _client: MagicMock,
         mock_prepare: MagicMock,
         mock_af: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_prepare.return_value = _make_prepared()
@@ -138,6 +148,8 @@ class TestVerboseFlag:
         assert result.exit_code == 0
         assert "1 file(s)" in result.output
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE_FILES, new_callable=AsyncMock)
     @patch(_PREPARE)
     @patch(_CLIENT)
@@ -155,6 +167,8 @@ class TestVerboseFlag:
         _client: MagicMock,
         mock_prepare: MagicMock,
         mock_af: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_prepare.return_value = _make_prepared()
@@ -166,6 +180,8 @@ class TestVerboseFlag:
         assert "region lines" in result.output
         assert "scope(s)" in result.output
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE_FILES, new_callable=AsyncMock)
     @patch(_PREPARE)
     @patch(_CLIENT)
@@ -183,6 +199,8 @@ class TestVerboseFlag:
         _client: MagicMock,
         mock_prepare: MagicMock,
         mock_af: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_prepare.return_value = _make_prepared()
@@ -193,6 +211,8 @@ class TestVerboseFlag:
         assert result.exit_code == 0
         assert "tokens" in result.output
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE_FILES, new_callable=AsyncMock)
     @patch(_PREPARE)
     @patch(_CLIENT)
@@ -210,6 +230,8 @@ class TestVerboseFlag:
         _client: MagicMock,
         mock_prepare: MagicMock,
         mock_af: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_prepare.return_value = _make_prepared()
@@ -334,6 +356,8 @@ class TestDryRunEnhanced:
 
 
 class TestJsonFlag:
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -349,6 +373,8 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.LOW)])
@@ -357,9 +383,16 @@ class TestJsonFlag:
 
         data = json.loads(result.output)
         assert "findings" in data
+        assert "schema_version" in data
+        assert "version" in data
+        assert "timestamp" in data
+        assert "metadata" in data
+        assert "summary" in data
         assert len(data["findings"]) == 1
         assert data["findings"][0]["what"] == "SQL Injection"
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -375,6 +408,8 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_analyze.return_value = AnalysisResult()
@@ -385,6 +420,8 @@ class TestJsonFlag:
         assert stripped.startswith("{")
         assert stripped.endswith("}")
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -400,6 +437,8 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_analyze.return_value = AnalysisResult()
@@ -408,8 +447,11 @@ class TestJsonFlag:
 
         data = json.loads(result.output)
         assert data["findings"] == []
+        assert data["summary"]["total"] == 0
         assert result.exit_code == 0
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -425,6 +467,8 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.CRITICAL)])
@@ -437,6 +481,8 @@ class TestJsonFlag:
 
 
 class TestOutputFlag:
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -452,6 +498,8 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
@@ -463,6 +511,8 @@ class TestOutputFlag:
         assert result.exit_code == 0
         assert out_file.exists()
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -478,6 +528,8 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
@@ -488,8 +540,11 @@ class TestOutputFlag:
 
         data = json.loads(out_file.read_text())
         assert "findings" in data
+        assert "schema_version" in data
         assert len(data["findings"]) == 1
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -505,6 +560,8 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
@@ -517,6 +574,8 @@ class TestOutputFlag:
         data = json.loads(out_file.read_text())
         assert data["findings"] == []
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -532,6 +591,8 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
@@ -543,6 +604,8 @@ class TestOutputFlag:
         assert result.exit_code == 0
         assert out_file.exists()
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -558,6 +621,8 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
@@ -573,6 +638,8 @@ class TestOutputFlag:
         assert result.exit_code == 1
         assert "Permission denied" in result.output
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -588,6 +655,8 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
@@ -627,6 +696,8 @@ class TestCombinedFlags:
         assert "scope(s)" in result.output
         assert "tokens" in result.output
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE_FILES, new_callable=AsyncMock)
     @patch(_PREPARE)
     @patch(_CLIENT)
@@ -644,6 +715,8 @@ class TestCombinedFlags:
         _client: MagicMock,
         mock_prepare: MagicMock,
         mock_af: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
         mock_prepare.return_value = _make_prepared()
@@ -655,6 +728,8 @@ class TestCombinedFlags:
         assert "findings" in data
         assert "Analyzing" not in result.output
 
+    @patch(_BRANCH, return_value="main")
+    @patch(_COMMIT, return_value="abc123")
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -670,6 +745,8 @@ class TestCombinedFlags:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        _commit: MagicMock,
+        _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]

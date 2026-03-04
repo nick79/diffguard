@@ -6,7 +6,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from diffguard.exceptions import GitError
-from diffguard.git import DiffFile, DiffHunk, _parse_c_quoted, get_staged_diff, is_git_repo, parse_diff
+from diffguard.git import (
+    DiffFile,
+    DiffHunk,
+    _parse_c_quoted,
+    get_branch_name,
+    get_commit_hash,
+    get_staged_diff,
+    is_git_repo,
+    parse_diff,
+)
 
 # === Test fixtures (inline as specified by TASKS.md) ===
 
@@ -588,6 +597,89 @@ class TestDiffFileDataclass:
     def test_default_hunks_is_empty(self) -> None:
         f = DiffFile(old_path="a.py", new_path="a.py")
         assert f.hunks == []
+
+
+class TestGetCommitHash:
+    @patch("diffguard.git.subprocess.run")
+    def test_returns_hash_for_valid_repo(self, mock_run: MagicMock) -> None:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "abc123def456\n"
+        mock_run.return_value = mock_result
+
+        assert get_commit_hash() == "abc123def456"
+
+    @patch("diffguard.git.subprocess.run")
+    def test_returns_none_on_failure(self, mock_run: MagicMock) -> None:
+        mock_result = MagicMock()
+        mock_result.returncode = 128
+        mock_result.stderr = "fatal: not a git repository\n"
+        mock_run.return_value = mock_result
+
+        assert get_commit_hash() is None
+
+    @patch("diffguard.git.subprocess.run")
+    def test_returns_none_for_empty_repo(self, mock_run: MagicMock) -> None:
+        mock_result = MagicMock()
+        mock_result.returncode = 128
+        mock_result.stderr = "fatal: ambiguous argument 'HEAD'\n"
+        mock_run.return_value = mock_result
+
+        assert get_commit_hash() is None
+
+    @patch("diffguard.git.subprocess.run", side_effect=FileNotFoundError)
+    def test_returns_none_when_git_not_installed(self, _mock_run: MagicMock) -> None:
+        assert get_commit_hash() is None
+
+    @patch("diffguard.git.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="git", timeout=30))
+    def test_returns_none_on_timeout(self, _mock_run: MagicMock) -> None:
+        assert get_commit_hash() is None
+
+    @patch("diffguard.git.subprocess.run")
+    def test_returns_none_for_empty_stdout(self, mock_run: MagicMock) -> None:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_run.return_value = mock_result
+
+        assert get_commit_hash() is None
+
+
+class TestGetBranchName:
+    @patch("diffguard.git.subprocess.run")
+    def test_returns_branch_name(self, mock_run: MagicMock) -> None:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "feature/auth\n"
+        mock_run.return_value = mock_result
+
+        assert get_branch_name() == "feature/auth"
+
+    @patch("diffguard.git.subprocess.run")
+    def test_returns_none_for_detached_head(self, mock_run: MagicMock) -> None:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "HEAD\n"
+        mock_run.return_value = mock_result
+
+        assert get_branch_name() is None
+
+    @patch("diffguard.git.subprocess.run")
+    def test_returns_none_on_failure(self, mock_run: MagicMock) -> None:
+        mock_result = MagicMock()
+        mock_result.returncode = 128
+        mock_result.stderr = "fatal: not a git repository\n"
+        mock_run.return_value = mock_result
+
+        assert get_branch_name() is None
+
+    @patch("diffguard.git.subprocess.run", side_effect=FileNotFoundError)
+    def test_returns_none_when_git_not_installed(self, _mock_run: MagicMock) -> None:
+        assert get_branch_name() is None
+
+    @patch("diffguard.git.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="git", timeout=30))
+    def test_returns_none_on_timeout(self, _mock_run: MagicMock) -> None:
+        assert get_branch_name() is None
 
 
 class TestDiffHunkDataclass:

@@ -132,6 +132,8 @@ class TestNoStagedChanges:
 
 
 class TestAsyncEntryPoint:
+    @patch("diffguard.cli.get_branch_name", return_value="main")
+    @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -147,6 +149,8 @@ class TestAsyncEntryPoint:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        _mock_commit: MagicMock,
+        _mock_branch: MagicMock,
     ) -> None:
         mock_config.return_value = DiffguardConfig()
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
@@ -159,6 +163,8 @@ class TestAsyncEntryPoint:
         assert result.exit_code == 0
         mock_analyze.assert_awaited_once()
 
+    @patch("diffguard.cli.get_branch_name", return_value="main")
+    @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -174,6 +180,8 @@ class TestAsyncEntryPoint:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        _mock_commit: MagicMock,
+        _mock_branch: MagicMock,
     ) -> None:
         mock_config.return_value = DiffguardConfig()
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
@@ -186,6 +194,8 @@ class TestAsyncEntryPoint:
         assert "1 issue" in result.output
         assert "SQL Injection" in result.output
 
+    @patch("diffguard.cli.get_branch_name", return_value="main")
+    @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -201,6 +211,8 @@ class TestAsyncEntryPoint:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        _mock_commit: MagicMock,
+        _mock_branch: MagicMock,
     ) -> None:
         mock_config.return_value = DiffguardConfig()
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"

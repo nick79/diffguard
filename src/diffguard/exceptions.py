@@ -65,5 +65,9 @@ class MalformedResponseError(LLMError):
     """LLM response could not be parsed."""
 
 
+class ReportWriteError(DiffguardError):
+    """Report file could not be written."""
+
+
 class UnsupportedLanguageError(DiffguardError):
     """Programming language not supported."""
