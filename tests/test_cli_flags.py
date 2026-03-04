@@ -597,7 +597,7 @@ class TestOutputFlag:
         result = runner.invoke(app, ["--output", str(out_file)])
 
         assert result.exit_code == 0
-        assert "1 security issue" in result.output
+        assert "1 issue" in result.output
         assert "Report saved to" in result.output
         assert out_file.exists()
 

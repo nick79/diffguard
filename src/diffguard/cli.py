@@ -8,6 +8,7 @@ from pathlib import Path  # noqa: TC003 — typer needs Path at runtime
 from typing import Annotated, Any
 
 import typer
+from rich.console import Console
 
 from diffguard import __version__
 from diffguard.config import load_config
@@ -15,6 +16,13 @@ from diffguard.exceptions import ConfigError, GitError
 from diffguard.git import get_staged_diff, is_git_repo, parse_diff
 from diffguard.llm import AnalysisResult, Finding, OpenAIClient, build_user_prompt, estimate_tokens
 from diffguard.llm.analyzer import FileAnalysisError, analyze_files
+from diffguard.output.terminal import (
+    build_stats,
+    create_progress_spinner,
+    print_findings_grouped,
+    print_no_findings,
+    print_summary,
+)
 from diffguard.pipeline import PreparedContext, analyze_staged_changes, prepare_file_contexts
 
 app = typer.Typer(
@@ -132,14 +140,16 @@ def _compute_token_estimates(prepared: PreparedContext) -> list[tuple[str, int]]
     return estimates
 
 
-def _print_results(result: AnalysisResult) -> None:
-    """Print analysis results to the terminal."""
+def _print_results(result: AnalysisResult, console: Console, *, files_analyzed: int) -> None:
+    """Print analysis results to the terminal using rich formatting."""
+    stats = build_stats(result.findings, files_analyzed)
+
     if result.findings:
-        typer.echo(f"Found {len(result.findings)} security issue(s).")
-        for finding in result.findings:
-            typer.echo(f"  [{finding.severity.value}] {finding.what} ({finding.file_path})")
+        print_findings_grouped(result.findings, console)
+        console.print()
+        print_summary(stats, console)
     else:
-        typer.echo("No security issues found.")
+        print_no_findings(stats, console)
 
     if result.errors:
         for error in result.errors:
@@ -158,10 +168,12 @@ def _route_output(
     *,
     json_output: bool,
     output: Path | None,
+    console: Console,
+    files_analyzed: int,
 ) -> None:
     """Route analysis results to the appropriate output destinations."""
     if not json_output and not output:
-        _print_results(result)
+        _print_results(result, console, files_analyzed=files_analyzed)
         return
 
     data = _serialize_result(result)
@@ -170,8 +182,8 @@ def _route_output(
     if output:
         _write_json_file(data, output)
         if not json_output:
-            _print_results(result)
-            typer.echo(f"Report saved to {output}")
+            _print_results(result, console, files_analyzed=files_analyzed)
+            console.print(f"Report saved to {output}")
     if json_output and _has_critical_or_high(result):
         raise typer.Exit(code=1)
 
@@ -260,6 +272,9 @@ async def _run(
         typer.echo("Stage changes with: git add <files>")
         raise typer.Exit(code=0)
 
+    # Suppress rich output when --json is active
+    console = Console(stderr=json_output)
+
     if dry_run or verbose:
         prepared = prepare_file_contexts(diff_files, config)
 
@@ -268,11 +283,13 @@ async def _run(
         return  # _handle_dry_run raises typer.Exit, but guard return for clarity
 
     client = OpenAIClient(model=config.model, timeout=config.timeout)
+    files_analyzed = 0
 
     if verbose:
         token_estimates = _compute_token_estimates(prepared)
+        files_analyzed = len(prepared.code_contexts)
         if not json_output:
-            typer.echo(f"Analyzing {len(prepared.code_contexts)} file(s)...")
+            typer.echo(f"Analyzing {files_analyzed} file(s)...")
             for file_path, tokens in token_estimates:
                 fc = next(fc for fc in prepared.file_contexts if fc.file_path == file_path)
                 region_lines = sum(r.end_line - r.start_line + 1 for r in fc.regions)
@@ -292,6 +309,11 @@ async def _run(
         if not json_output:
             typer.echo(f"Analysis completed in {elapsed:.1f}s")
     else:
-        result = await analyze_staged_changes(diff_files, config, client)
+        if not json_output:
+            with create_progress_spinner(console):
+                result = await analyze_staged_changes(diff_files, config, client)
+        else:
+            result = await analyze_staged_changes(diff_files, config, client)
+        files_analyzed = len(diff_files)
 
-    _route_output(result, json_output=json_output, output=output)
+    _route_output(result, json_output=json_output, output=output, console=console, files_analyzed=files_analyzed)

@@ -183,7 +183,7 @@ class TestAsyncEntryPoint:
 
         result = runner.invoke(app)
 
-        assert "1 security issue" in result.output
+        assert "1 issue" in result.output
         assert "SQL Injection" in result.output
 
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
