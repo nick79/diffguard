@@ -162,7 +162,7 @@ def _parse_diff_git_header(line: str) -> tuple[str, str]:
 
     # Unquoted: split on " b/"
     if rest.startswith("a/"):
-        idx = rest.find(" b/")
+        idx = rest.rfind(" b/")
         if idx != -1:
             return rest[2:idx], rest[idx + 3 :]
 
@@ -237,8 +237,8 @@ def _extract_path(raw: str, prefix: str) -> str | None:
             return unquoted[len(prefix) :]
         return unquoted
     if raw.startswith(prefix):
-        return raw[len(prefix) :]
-    return raw
+        return raw[len(prefix) :].rstrip()
+    return raw.rstrip()
 
 
 def _parse_hunk_header(hunk_match: re.Match[str]) -> DiffHunk:

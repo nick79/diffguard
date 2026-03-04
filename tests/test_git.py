@@ -178,6 +178,27 @@ index abc123..def456 100644
 +y = 2
 """
 
+SAMPLE_NEW_FILE_WITH_SPACE_DIFF = """\
+diff --git a/src/my module.py b/src/my module.py
+new file mode 100644
+index 0000000..abc123
+--- /dev/null
++++ b/src/my module.py\t
+@@ -0,0 +1,3 @@
++def greet():
++    return "hello"
+"""
+
+SAMPLE_PATH_CONTAINING_B_SLASH_DIFF = """\
+diff --git a/src/my b/dir/file.py b/src/my b/dir/file.py
+index abc123..def456 100644
+--- a/src/my b/dir/file.py
++++ b/src/my b/dir/file.py
+@@ -1,2 +1,3 @@
+ x = 1
++y = 2
+"""
+
 SAMPLE_UNICODE_PATH_DIFF = """\
 diff --git a/src/caf\u00e9.py b/src/caf\u00e9.py
 index abc123..def456 100644
@@ -456,6 +477,33 @@ class TestFilePathsWithSpaces:
         result = parse_diff(SAMPLE_SPACE_IN_PATH_DIFF)
         assert len(result) == 1
         assert result[0].path == "src/my file.py"
+
+
+class TestNewFileWithSpaceInPath:
+    """Handle new file with space in name and trailing tab from git."""
+
+    def test_new_file_path_has_no_trailing_whitespace(self) -> None:
+        result = parse_diff(SAMPLE_NEW_FILE_WITH_SPACE_DIFF)
+        assert len(result) == 1
+        assert result[0].new_path == "src/my module.py"
+        assert result[0].path == "src/my module.py"
+
+    def test_new_file_flag_is_set(self) -> None:
+        result = parse_diff(SAMPLE_NEW_FILE_WITH_SPACE_DIFF)
+        assert result[0].is_new_file is True
+
+    def test_new_file_has_hunks(self) -> None:
+        result = parse_diff(SAMPLE_NEW_FILE_WITH_SPACE_DIFF)
+        assert len(result[0].hunks) == 1
+
+
+class TestPathContainingBSlash:
+    """Handle file path containing literal ' b/' substring."""
+
+    def test_path_with_b_slash_parsed_correctly(self) -> None:
+        result = parse_diff(SAMPLE_PATH_CONTAINING_B_SLASH_DIFF)
+        assert len(result) == 1
+        assert result[0].path == "src/my b/dir/file.py"
 
 
 class TestFilePathsWithSpecialChars:
