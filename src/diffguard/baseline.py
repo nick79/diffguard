@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,9 +18,12 @@ if TYPE_CHECKING:
 __all__ = [
     "BaselineEntry",
     "filter_suppressed",
+    "generate_finding_id",
+    "generate_fingerprint",
     "get_suppressed",
     "is_suppressed",
     "load_baseline",
+    "normalize_code",
     "save_baseline",
 ]
 
@@ -145,6 +150,108 @@ def filter_suppressed(findings: list[Finding], baseline: list[BaselineEntry]) ->
 def get_suppressed(findings: list[Finding], baseline: list[BaselineEntry]) -> list[Finding]:
     """Return findings that ARE suppressed by the baseline."""
     return [f for f in findings if is_suppressed(f, baseline)]
+
+
+_FINGERPRINT_HASH_LENGTH = 16
+_TRIPLE_DOUBLE_RE = re.compile(r'"""[\s\S]*?"""')
+_TRIPLE_SINGLE_RE = re.compile(r"'''[\s\S]*?'''")
+
+
+def normalize_code(code: str) -> str:
+    """Normalize code for fingerprinting by stripping comments, docstrings, and whitespace.
+
+    Removes:
+    - Triple-quoted strings (docstrings)
+    - Single-line comments (``# ...``)
+    - Inline comments (``x = 1  # ...``)
+    - Leading/trailing whitespace per line
+    - Blank lines
+
+    Preserves:
+    - String literals containing ``#`` (e.g., ``"hello # world"``)
+    """
+    result = _TRIPLE_DOUBLE_RE.sub("", code)
+    result = _TRIPLE_SINGLE_RE.sub("", result)
+
+    lines: list[str] = []
+    for line in result.splitlines():
+        stripped = _remove_inline_comment(line).strip()
+        if stripped:
+            lines.append(stripped)
+
+    return "\n".join(lines)
+
+
+def generate_fingerprint(code: str, cwe: str) -> str:
+    """Generate a deterministic fingerprint from code and CWE identifier.
+
+    Format: ``{cwe_prefix}-{sha256_hex[:16]}`` (e.g., ``cwe89-a1b2c3d4e5f6a7b8``).
+
+    The fingerprint is resilient to whitespace, comment, and docstring changes
+    because the code is normalized before hashing.
+
+    Args:
+        code: Source code snippet.
+        cwe: CWE identifier (e.g., ``CWE-89`` or ``89``).
+
+    Returns:
+        Fingerprint string.
+    """
+    normalized = normalize_code(code)
+    cwe_prefix = _cwe_to_prefix(cwe)
+    hash_input = f"{cwe_prefix}:{normalized}"
+    sha = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return f"{cwe_prefix}-{sha[:_FINGERPRINT_HASH_LENGTH]}"
+
+
+def generate_finding_id(finding: Finding, code: str) -> str:
+    """Generate a finding ID from a Finding and its associated code.
+
+    Args:
+        finding: The security finding.
+        code: Source code snippet associated with the finding.
+
+    Returns:
+        Finding ID string (same format as fingerprint).
+    """
+    cwe = finding.cwe_id or "unknown"
+    return generate_fingerprint(code, cwe)
+
+
+def _cwe_to_prefix(cwe: str) -> str:
+    """Convert a CWE identifier to a lowercase prefix (e.g., 'CWE-89' -> 'cwe89')."""
+    return cwe.lower().replace("-", "")
+
+
+def _remove_inline_comment(line: str) -> str:
+    """Remove ``#`` comment from a line while preserving ``#`` inside string literals."""
+    result: list[str] = []
+    in_single = False
+    in_double = False
+    escape = False
+
+    for char in line:
+        if escape:
+            result.append(char)
+            escape = False
+            continue
+        if char == "\\":
+            result.append(char)
+            escape = True
+            continue
+        if char == '"' and not in_single:
+            in_double = not in_double
+            result.append(char)
+            continue
+        if char == "'" and not in_double:
+            in_single = not in_single
+            result.append(char)
+            continue
+        if char == "#" and not in_single and not in_double:
+            break
+        result.append(char)
+
+    return "".join(result)
 
 
 def _finding_id(finding: Finding) -> str | None:
