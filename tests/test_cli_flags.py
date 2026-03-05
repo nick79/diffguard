@@ -635,7 +635,7 @@ class TestOutputFlag:
         result = runner.invoke(app, ["--output", str(out_file)])
 
         readonly_dir.chmod(0o755)  # restore for cleanup
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "Permission denied" in result.output
 
     @patch(_BRANCH, return_value="main")

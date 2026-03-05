@@ -87,9 +87,9 @@ diffguard --version
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success (no findings, or no staged changes) |
-| 1 | Error (missing API key, config error, git error), or Critical/High findings with `--json` |
-| 2 | Not a git repository |
+| 0 | Pass — no blocking findings (warn/allow findings may still be printed) |
+| 1 | Block — findings above severity threshold exist (commit should be rejected) |
+| 2 | Error — not a git repo, missing API key, config error, LLM failure, etc. |
 | 130 | Interrupted (Ctrl+C) |
 
 ## Configuration

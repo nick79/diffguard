@@ -11,8 +11,8 @@ import typer
 from rich.console import Console
 
 from diffguard import __version__
-from diffguard.config import load_config
-from diffguard.exceptions import ConfigError, GitError, ReportWriteError
+from diffguard.config import DiffguardConfig, load_config
+from diffguard.exceptions import ConfigError, DiffguardError, GitError, ReportWriteError
 from diffguard.git import get_branch_name, get_commit_hash, get_staged_diff, is_git_repo, parse_diff
 from diffguard.llm import AnalysisResult, OpenAIClient, build_user_prompt, estimate_tokens
 from diffguard.llm.analyzer import FileAnalysisError, analyze_files
@@ -25,10 +25,11 @@ from diffguard.output.terminal import (
     print_summary,
 )
 from diffguard.pipeline import PreparedContext, analyze_staged_changes, prepare_file_contexts
+from diffguard.severity import should_block
 
 app = typer.Typer(
     name="diffguard",
-    help="LLM-powered security review of staged git diffs.",
+    help="LLM-powered security review of staged git diffs.\n\nExit codes: 0 = pass, 1 = blocking findings, 2 = error.",
     no_args_is_help=False,
 )
 
@@ -49,12 +50,12 @@ def _validate_git_repo() -> None:
 
 
 def _validate_api_key() -> None:
-    """Exit with code 1 if OPENAI_API_KEY is missing or blank."""
+    """Exit with code 2 if OPENAI_API_KEY is missing or blank."""
     api_key = os.environ.get("OPENAI_API_KEY", "")
     if not api_key.strip():
         typer.echo("Error: OPENAI_API_KEY environment variable is not set.", err=True)
         typer.echo("Set it with: export OPENAI_API_KEY=sk-your-key-here", err=True)
-        raise typer.Exit(code=1) from None
+        raise typer.Exit(code=2) from None
 
 
 def _get_staged_diff_text() -> str:
@@ -63,7 +64,7 @@ def _get_staged_diff_text() -> str:
         raw_diff = get_staged_diff()
     except GitError as exc:
         typer.echo(f"Error: {exc}", err=True)
-        raise typer.Exit(code=1) from None
+        raise typer.Exit(code=2) from None
 
     if not raw_diff.strip():
         typer.echo("No staged changes to analyze.")
@@ -97,7 +98,7 @@ def _write_json_file(data: dict[str, Any], path: Path) -> None:
         write_report(data, path)
     except ReportWriteError:
         typer.echo(f"Error: Permission denied writing to {path}", err=True)
-        raise typer.Exit(code=1) from None
+        raise typer.Exit(code=2) from None
 
 
 def _compute_token_estimates(prepared: PreparedContext) -> list[tuple[str, int]]:
@@ -110,7 +111,13 @@ def _compute_token_estimates(prepared: PreparedContext) -> list[tuple[str, int]]
     return estimates
 
 
-def _print_results(result: AnalysisResult, console: Console, *, files_analyzed: int) -> None:
+def _print_results(
+    result: AnalysisResult,
+    console: Console,
+    *,
+    files_analyzed: int,
+    blocking: bool,
+) -> None:
     """Print analysis results to the terminal using rich formatting."""
     stats = build_stats(result.findings, files_analyzed)
 
@@ -118,19 +125,14 @@ def _print_results(result: AnalysisResult, console: Console, *, files_analyzed: 
         print_findings_grouped(result.findings, console)
         console.print()
         print_summary(stats, console)
+        if blocking:
+            console.print("[bold red]Blocking issues found — commit should be rejected.[/bold red]")
     else:
         print_no_findings(stats, console)
 
     if result.errors:
         for error in result.errors:
             typer.echo(f"Warning: Error analyzing {error.file_path}: {error.error}", err=True)
-
-
-def _has_critical_or_high(result: AnalysisResult) -> bool:
-    """Check if any finding has Critical or High severity."""
-    from diffguard.llm import SeverityLevel  # noqa: PLC0415
-
-    return any(f.severity in (SeverityLevel.CRITICAL, SeverityLevel.HIGH) for f in result.findings)
 
 
 def _route_output(
@@ -140,10 +142,13 @@ def _route_output(
     output: Path | None,
     console: Console,
     metadata: ReportMetadata,
+    blocking: bool,
 ) -> None:
     """Route analysis results to the appropriate output destinations."""
     if not json_output and not output:
-        _print_results(result, console, files_analyzed=metadata.files_analyzed)
+        _print_results(result, console, files_analyzed=metadata.files_analyzed, blocking=blocking)
+        if blocking:
+            raise typer.Exit(code=1)
         return
 
     report = generate_report(result.findings, metadata)
@@ -155,9 +160,9 @@ def _route_output(
     if output:
         _write_json_file(report, output)
         if not json_output:
-            _print_results(result, console, files_analyzed=metadata.files_analyzed)
+            _print_results(result, console, files_analyzed=metadata.files_analyzed, blocking=blocking)
             console.print(f"Report saved to {output}")
-    if json_output and _has_critical_or_high(result):
+    if blocking:
         raise typer.Exit(code=1)
 
 
@@ -210,12 +215,49 @@ def main(
         typer.Option("--version", callback=_version_callback, is_eager=True, help="Show version and exit"),
     ] = False,
 ) -> None:
-    """LLM-powered security review of staged git diffs."""
+    """LLM-powered security review of staged git diffs.
+
+    Exit codes: 0 = pass, 1 = blocking findings, 2 = error.
+    """
     try:
         asyncio.run(_run(verbose=verbose, dry_run=dry_run, json_output=json_output, output=output))
     except KeyboardInterrupt:
         typer.echo("\nInterrupted", err=True)
         raise typer.Exit(code=130) from None
+
+
+async def _run_verbose_analysis(
+    prepared: PreparedContext,
+    client: OpenAIClient,
+    config: DiffguardConfig,
+    *,
+    json_output: bool,
+) -> tuple[AnalysisResult, int, float]:
+    """Run analysis in verbose mode with timing and token info."""
+    token_estimates = _compute_token_estimates(prepared)
+    files_analyzed = len(prepared.code_contexts)
+    if not json_output:
+        typer.echo(f"Analyzing {files_analyzed} file(s)...")
+        for file_path, tokens in token_estimates:
+            fc = next(fc for fc in prepared.file_contexts if fc.file_path == file_path)
+            region_lines = sum(r.end_line - r.start_line + 1 for r in fc.regions)
+            scope_count = len(fc.scopes)
+            typer.echo(f"  {file_path} (~{tokens} tokens, {region_lines} region lines, {scope_count} scope(s))")
+
+    start = time.monotonic()
+    result = await analyze_files(
+        prepared.code_contexts,
+        client,
+        max_concurrent=config.max_concurrent_api_calls,
+        timeout_per_file=float(config.timeout),
+    )
+    result.errors.extend(prepared.errors)
+    elapsed = time.monotonic() - start
+
+    if not json_output:
+        typer.echo(f"Analysis completed in {elapsed:.1f}s")
+
+    return result, files_analyzed, elapsed
 
 
 async def _run(
@@ -232,7 +274,7 @@ async def _run(
         config = load_config()
     except ConfigError as exc:
         typer.echo(f"Error: {exc}", err=True)
-        raise typer.Exit(code=1) from None
+        raise typer.Exit(code=2) from None
 
     if not dry_run:
         _validate_api_key()
@@ -256,39 +298,25 @@ async def _run(
         return  # _handle_dry_run raises typer.Exit, but guard return for clarity
 
     client = OpenAIClient(model=config.model, timeout=config.timeout)
-    files_analyzed = 0
-    elapsed: float | None = None
 
-    if verbose:
-        token_estimates = _compute_token_estimates(prepared)
-        files_analyzed = len(prepared.code_contexts)
-        if not json_output:
-            typer.echo(f"Analyzing {files_analyzed} file(s)...")
-            for file_path, tokens in token_estimates:
-                fc = next(fc for fc in prepared.file_contexts if fc.file_path == file_path)
-                region_lines = sum(r.end_line - r.start_line + 1 for r in fc.regions)
-                scope_count = len(fc.scopes)
-                typer.echo(f"  {file_path} (~{tokens} tokens, {region_lines} region lines, {scope_count} scope(s))")
-
-        start = time.monotonic()
-        result = await analyze_files(
-            prepared.code_contexts,
-            client,
-            max_concurrent=config.max_concurrent_api_calls,
-            timeout_per_file=float(config.timeout),
-        )
-        result.errors.extend(prepared.errors)
-        elapsed = time.monotonic() - start
-
-        if not json_output:
-            typer.echo(f"Analysis completed in {elapsed:.1f}s")
-    else:
-        if not json_output:
-            with create_progress_spinner(console):
-                result = await analyze_staged_changes(diff_files, config, client)
+    try:
+        if verbose:
+            result, files_analyzed, elapsed = await _run_verbose_analysis(
+                prepared, client, config, json_output=json_output
+            )
         else:
-            result = await analyze_staged_changes(diff_files, config, client)
-        files_analyzed = len(diff_files)
+            elapsed = None
+            if not json_output:
+                with create_progress_spinner(console):
+                    result = await analyze_staged_changes(diff_files, config, client)
+            else:
+                result = await analyze_staged_changes(diff_files, config, client)
+            files_analyzed = len(diff_files)
+    except DiffguardError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+
+    blocking = should_block(result.findings, config)
 
     report_metadata = ReportMetadata(
         files_analyzed=files_analyzed,
@@ -297,4 +325,11 @@ async def _run(
         branch_name=get_branch_name(),
     )
 
-    _route_output(result, json_output=json_output, output=output, console=console, metadata=report_metadata)
+    _route_output(
+        result,
+        json_output=json_output,
+        output=output,
+        console=console,
+        metadata=report_metadata,
+        blocking=blocking,
+    )
