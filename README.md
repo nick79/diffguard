@@ -124,6 +124,15 @@ sensitive_patterns = ["*.secret.json", "**/private/**"]  # default: []
 
 # Whether to include the built-in sensitive file patterns
 use_default_sensitive_patterns = true  # default
+
+# Severity thresholds: action per severity level
+# Actions: "block" (exit 1), "warn" (print warning, exit 0), "allow" (no output)
+[thresholds]
+critical = "block"   # default
+high = "block"       # default
+medium = "warn"      # default
+low = "allow"        # default
+info = "allow"       # default
 ```
 
 ### Sensitive File Exclusion
@@ -148,6 +157,26 @@ The two settings work together:
 | `false` | empty | No exclusion (not recommended) |
 
 Built-in patterns are enabled by default for security. To extend them, add your patterns to `sensitive_patterns` — they are appended to the built-in list. To take full control, set `use_default_sensitive_patterns = false` and provide your own complete list.
+
+### Severity Thresholds
+
+Control what happens when findings of each severity level are detected:
+
+| Action | Behavior |
+|--------|----------|
+| `block` | Finding causes exit code 1 (blocks commit in pre-commit hook) |
+| `warn` | Finding is printed with a warning, but does not block |
+| `allow` | Finding is included in output but does not block |
+
+Defaults: Critical and High block, Medium warns, Low and Info are allowed. Customize in `.diffguard.toml`:
+
+```toml
+[thresholds]
+medium = "block"   # upgrade Medium to blocking
+high = "warn"      # downgrade High to warning-only
+```
+
+Only the levels you specify are overridden — unmentioned levels keep their defaults.
 
 ### Environment Variables
 
