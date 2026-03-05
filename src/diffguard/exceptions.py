@@ -71,3 +71,7 @@ class ReportWriteError(DiffguardError):
 
 class UnsupportedLanguageError(DiffguardError):
     """Programming language not supported."""
+
+
+class BaselineError(DiffguardError):
+    """Baseline file loading/saving errors."""
