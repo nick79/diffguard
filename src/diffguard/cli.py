@@ -1,21 +1,26 @@
 """CLI entry point for Diffguard."""
 
 import asyncio
+import contextlib
+import hashlib
 import json
 import os
 import time
-from pathlib import Path  # noqa: TC003 — typer needs Path at runtime
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 from rich.console import Console
 
 from diffguard import __version__
+from diffguard.baseline_cli import baseline_app
 from diffguard.config import DiffguardConfig, load_config
 from diffguard.exceptions import ConfigError, DiffguardError, GitError, ReportWriteError
 from diffguard.git import get_branch_name, get_commit_hash, get_staged_diff, is_git_repo, parse_diff
 from diffguard.llm import AnalysisResult, OpenAIClient, build_user_prompt, estimate_tokens
 from diffguard.llm.analyzer import FileAnalysisError, analyze_files
+from diffguard.llm.response import Finding  # noqa: TC001
 from diffguard.output.json_report import ReportMetadata, generate_report, print_report, write_report
 from diffguard.output.terminal import (
     build_stats,
@@ -32,6 +37,7 @@ app = typer.Typer(
     help="LLM-powered security review of staged git diffs.\n\nExit codes: 0 = pass, 1 = blocking findings, 2 = error.",
     no_args_is_help=False,
 )
+app.add_typer(baseline_app, name="baseline")
 
 
 def _version_callback(value: bool) -> None:
@@ -111,6 +117,34 @@ def _compute_token_estimates(prepared: PreparedContext) -> list[tuple[str, int]]
     return estimates
 
 
+def _cwe_to_prefix(cwe: str) -> str:
+    """Convert a CWE identifier to a lowercase prefix (e.g., 'CWE-89' -> 'cwe89')."""
+    return cwe.lower().replace("-", "")
+
+
+def _save_scan_cache(findings: list[Finding]) -> None:
+    """Save findings to .diffguard/last_scan.json for baseline CLI enrichment."""
+    cache_dir = Path(".diffguard")
+    cache_dir.mkdir(exist_ok=True)
+    cache_data = {
+        "scan_time": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "findings": [
+            {
+                "finding_id": _cwe_to_prefix(f.cwe_id or "unknown")
+                + "-"
+                + hashlib.sha256(f"{_cwe_to_prefix(f.cwe_id or 'unknown')}:{f.what}".encode()).hexdigest()[:16],
+                "cwe_id": f.cwe_id or "",
+                "what": f.what,
+                "file_path": f.file_path or "",
+                "severity": f.severity.value,
+            }
+            for f in findings
+        ],
+    }
+    with contextlib.suppress(OSError):
+        (cache_dir / "last_scan.json").write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
+
+
 def _print_results(
     result: AnalysisResult,
     console: Console,
@@ -127,6 +161,8 @@ def _print_results(
         print_summary(stats, console)
         if blocking:
             console.print("[bold red]Blocking issues found — commit should be rejected.[/bold red]")
+        console.print()
+        console.print("[dim]To suppress a finding: diffguard baseline add <finding-id>[/dim]")
     else:
         print_no_findings(stats, console)
 
@@ -200,8 +236,9 @@ def _handle_dry_run(
     raise typer.Exit(code=0)
 
 
-@app.command()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="Detailed output with timing and token info")
     ] = False,
@@ -219,6 +256,8 @@ def main(
 
     Exit codes: 0 = pass, 1 = blocking findings, 2 = error.
     """
+    if ctx.invoked_subcommand is not None:
+        return
     try:
         asyncio.run(_run(verbose=verbose, dry_run=dry_run, json_output=json_output, output=output))
     except KeyboardInterrupt:
@@ -315,6 +354,8 @@ async def _run(
     except DiffguardError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=2) from None
+
+    _save_scan_cache(result.findings)
 
     blocking = should_block(result.findings, config)
 

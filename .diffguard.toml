@@ -29,6 +29,9 @@
 # Set to false to disable them (use only your custom patterns).
 use_default_sensitive_patterns = true
 
+# Path to baseline file (relative to project root)
+# baseline_path = ".diffguard-baseline.json"
+
 # Severity thresholds: action per severity level (block, warn, allow)
 # [thresholds]
 # critical = "block"

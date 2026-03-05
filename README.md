@@ -118,6 +118,9 @@ timeout = 120  # default
 # Patterns identifying third-party code paths (excluded from symbol resolution)
 third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]  # default
 
+# Path to baseline file (relative to project root)
+baseline_path = ".diffguard-baseline.json"  # default
+
 # Additional glob patterns for sensitive file exclusion
 # These are added on top of the built-in defaults (.env, *.pem, *.key, etc.)
 sensitive_patterns = ["*.secret.json", "**/private/**"]  # default: []
@@ -177,6 +180,42 @@ high = "warn"      # downgrade High to warning-only
 ```
 
 Only the levels you specify are overridden — unmentioned levels keep their defaults.
+
+### Baseline Management
+
+Suppress known false positives so they don't appear in future scans.
+
+#### Adding a finding to the baseline
+
+After a scan, use the finding ID shown in the output:
+
+```bash
+diffguard baseline add cwe89-a1b2c3d4e5f6a7b8 --reason "Validated input upstream"
+```
+
+#### Bulk-adding Low/Info findings
+
+```bash
+diffguard baseline add --all-low
+```
+
+#### Removing a finding from the baseline
+
+```bash
+diffguard baseline remove cwe89-a1b2c3d4e5f6a7b8
+```
+
+#### Listing baselined findings
+
+```bash
+diffguard baseline list
+```
+
+The baseline file defaults to `.diffguard-baseline.json` in the project root. Override with:
+
+```toml
+baseline_path = "custom/path/baseline.json"
+```
 
 ### Environment Variables
 

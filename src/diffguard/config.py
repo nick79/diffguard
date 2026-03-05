@@ -66,6 +66,12 @@ class DiffguardConfig(BaseModel):
     max_concurrent_api_calls: int = Field(default=5, ge=1, description="Maximum concurrent API calls")
     timeout: int = Field(default=120, ge=1, description="API timeout in seconds")
 
+    # Baseline
+    baseline_path: str = Field(
+        default=".diffguard-baseline.json",
+        description="Path to baseline file relative to project root",
+    )
+
     # Severity thresholds
     thresholds: dict[SeverityLevel, ThresholdAction] = Field(
         default_factory=lambda: dict(DEFAULT_THRESHOLDS),

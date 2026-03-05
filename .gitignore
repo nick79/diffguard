@@ -25,5 +25,8 @@ dist/
 build/
 *.egg-info/
 
+# Diffguard scan cache
+.diffguard/
+
 # OS
 .DS_Store

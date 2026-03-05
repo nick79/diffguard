@@ -49,6 +49,10 @@ class TestDiffguardConfigDefaults:
         assert "venv/" in config.third_party_patterns
         assert "site-packages/" in config.third_party_patterns
 
+    def test_default_baseline_path(self) -> None:
+        config = DiffguardConfig()
+        assert config.baseline_path == ".diffguard-baseline.json"
+
 
 class TestLoadConfigFromFile:
     """Test loading config from .diffguard.toml files."""
@@ -142,6 +146,14 @@ class TestLoadConfigFromFile:
 
         assert config.hunk_expansion_lines == 50
         assert config.model == "gpt-5.2"
+
+    def test_custom_baseline_path(self, tmp_path: Path) -> None:
+        config_file = tmp_path / CONFIG_FILENAME
+        config_file.write_text('baseline_path = "custom/baseline.json"')
+
+        config = load_config(config_path=config_file)
+
+        assert config.baseline_path == "custom/baseline.json"
 
 
 class TestFindConfigFile:
