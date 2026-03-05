@@ -14,6 +14,7 @@ __all__ = [
     "get_threshold_action",
     "group_findings_by_action",
     "has_blocking_findings",
+    "should_block",
 ]
 
 
@@ -58,6 +59,24 @@ def group_findings_by_action(findings: list[Finding], config: DiffguardConfig) -
         action = get_threshold_action(finding.severity, config)
         groups[action].append(finding)
     return groups
+
+
+def should_block(findings: list[Finding], config: DiffguardConfig) -> bool:
+    """Determine if findings should block the commit.
+
+    Convenience function that evaluates findings and checks for any BLOCK action.
+
+    Args:
+        findings: List of security findings to evaluate.
+        config: Diffguard configuration with threshold settings.
+
+    Returns:
+        True if at least one finding triggers a BLOCK action.
+    """
+    if not findings:
+        return False
+    evaluated = evaluate_findings(findings, config)
+    return has_blocking_findings(evaluated)
 
 
 def has_blocking_findings(evaluated: dict[Finding, ThresholdAction]) -> bool:

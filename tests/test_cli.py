@@ -266,7 +266,7 @@ class TestConfigLoading:
         mock_config.side_effect = ConfigError("Invalid TOML syntax")
         result = runner.invoke(app)
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "Invalid TOML syntax" in result.output
 
 
@@ -281,7 +281,7 @@ class TestAPIKeyValidation:
     ) -> None:
         result = runner.invoke(app)
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "OPENAI_API_KEY" in result.output
 
     @patch("diffguard.cli.load_config", return_value=DiffguardConfig())
@@ -294,7 +294,7 @@ class TestAPIKeyValidation:
     ) -> None:
         result = runner.invoke(app)
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "OPENAI_API_KEY" in result.output
 
     @patch("diffguard.cli.get_staged_diff", return_value="")
@@ -341,7 +341,7 @@ class TestGitError:
         mock_diff.side_effect = GitError("git diff failed")
         result = runner.invoke(app)
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "git diff failed" in result.output
 
 
