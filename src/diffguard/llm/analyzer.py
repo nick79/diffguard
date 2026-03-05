@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -77,9 +77,7 @@ async def analyze_file(
         try:
             raw_response = await client.analyze(prompt)
             findings = parse_llm_response(raw_response)
-            for finding in findings:
-                finding.file_path = context.file_path
-            return findings
+            return [replace(f, file_path=context.file_path) for f in findings]
         except _TRANSIENT_ERRORS:
             if attempt < attempts - 1:
                 logger.warning(

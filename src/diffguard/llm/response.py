@@ -33,7 +33,7 @@ class ConfidenceLevel(Enum):
     LOW = "Low"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Finding:
     """A single security finding from LLM analysis."""
 

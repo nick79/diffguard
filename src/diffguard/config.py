@@ -1,6 +1,7 @@
 """Configuration management for Diffguard."""
 
 import tomllib
+from enum import Enum
 from pathlib import Path
 from typing import Self
 
@@ -9,6 +10,29 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from diffguard.exceptions import ConfigError
 
 CONFIG_FILENAME = ".diffguard.toml"
+
+_VALID_THRESHOLD_ACTIONS = ("block", "warn", "allow")
+
+
+class ThresholdAction(Enum):
+    """Action to take when a finding meets or exceeds a severity threshold."""
+
+    BLOCK = "block"
+    WARN = "warn"
+    ALLOW = "allow"
+
+
+# Import SeverityLevel here to avoid circular imports — severity.py imports from config,
+# but SeverityLevel lives in llm.response which doesn't import config.
+from diffguard.llm.response import SeverityLevel  # noqa: E402
+
+DEFAULT_THRESHOLDS: dict[SeverityLevel, ThresholdAction] = {
+    SeverityLevel.CRITICAL: ThresholdAction.BLOCK,
+    SeverityLevel.HIGH: ThresholdAction.BLOCK,
+    SeverityLevel.MEDIUM: ThresholdAction.WARN,
+    SeverityLevel.LOW: ThresholdAction.ALLOW,
+    SeverityLevel.INFO: ThresholdAction.ALLOW,
+}
 
 
 class DiffguardConfig(BaseModel):
@@ -41,6 +65,57 @@ class DiffguardConfig(BaseModel):
     model: str = Field(default="gpt-5.2", description="OpenAI model to use for analysis")
     max_concurrent_api_calls: int = Field(default=5, ge=1, description="Maximum concurrent API calls")
     timeout: int = Field(default=120, ge=1, description="API timeout in seconds")
+
+    # Severity thresholds
+    thresholds: dict[SeverityLevel, ThresholdAction] = Field(
+        default_factory=lambda: dict(DEFAULT_THRESHOLDS),
+        description="Per-severity threshold actions (block, warn, allow)",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_thresholds(cls, data: dict[str, object]) -> dict[str, object]:
+        """Convert TOML string-keyed thresholds to SeverityLevel-keyed ThresholdAction values."""
+        if not isinstance(data, dict):
+            return data
+
+        raw_thresholds = data.get("thresholds")
+        if raw_thresholds is None:
+            return data
+
+        if not isinstance(raw_thresholds, dict):
+            return data
+
+        severity_map = {s.value.lower(): s for s in SeverityLevel}
+        parsed: dict[SeverityLevel, ThresholdAction] = dict(DEFAULT_THRESHOLDS)
+
+        for key, value in raw_thresholds.items():
+            # Accept both SeverityLevel enum instances and string keys
+            if isinstance(key, SeverityLevel):
+                severity = key
+            else:
+                str_key = str(key).strip().lower()
+                matched = severity_map.get(str_key)
+                if matched is None:
+                    valid_keys = ", ".join(sorted(severity_map.keys()))
+                    msg = f"Unknown severity level '{key}' in [thresholds]. Valid levels: {valid_keys}"
+                    raise ConfigError(msg)
+                severity = matched
+
+            # Accept both ThresholdAction enum instances and string values
+            if isinstance(value, ThresholdAction):
+                parsed[severity] = value
+            else:
+                str_value = str(value).strip().lower()
+                if str_value not in _VALID_THRESHOLD_ACTIONS:
+                    valid_actions = ", ".join(_VALID_THRESHOLD_ACTIONS)
+                    msg = f"Invalid threshold action '{value}' for {key}. Valid actions: {valid_actions}"
+                    raise ConfigError(msg)
+                parsed[severity] = ThresholdAction(str_value)
+
+        data = dict(data)
+        data["thresholds"] = parsed
+        return data
 
     @model_validator(mode="after")
     def validate_model_name(self) -> Self:

@@ -28,3 +28,11 @@
 # Built-in sensitive file patterns are enabled by default for security.
 # Set to false to disable them (use only your custom patterns).
 use_default_sensitive_patterns = true
+
+# Severity thresholds: action per severity level (block, warn, allow)
+# [thresholds]
+# critical = "block"
+# high = "block"
+# medium = "warn"
+# low = "allow"
+# info = "allow"
