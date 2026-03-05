@@ -43,6 +43,14 @@ uv tool install . --force
 
 The `--force` flag reinstalls the tool even if it's already installed, picking up any new changes.
 
+If `--force` doesn't pick up changes (e.g. cached build artifacts), do a full reinstall:
+
+```bash
+uv tool uninstall diffguard
+uv cache clean diffguard
+uv tool install .
+```
+
 ## Usage
 
 Navigate to any git repository, stage your changes, and run diffguard:
@@ -80,7 +88,7 @@ diffguard --version
 | Code | Meaning |
 |------|---------|
 | 0 | Success (no findings, or no staged changes) |
-| 1 | Error (missing API key, config error, or git error) |
+| 1 | Error (missing API key, config error, git error), or Critical/High findings with `--json` |
 | 2 | Not a git repository |
 | 130 | Interrupted (Ctrl+C) |
 
