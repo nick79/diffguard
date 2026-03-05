@@ -71,7 +71,7 @@ Respond ONLY with a JSON object containing a "findings" array:
     {
       "what": "Brief description of the vulnerability",
       "why": "Explanation of the security impact and risk",
-      "how_to_fix": "Concrete remediation guidance",
+      "how_to_fix": "Step-by-step remediation: what to change, a short code example showing the secure pattern, and why it prevents the vulnerability",
       "severity": "Critical|High|Medium|Low|Info",
       "confidence": "High|Medium|Low",
       "cwe_id": "CWE-XXX",
@@ -110,7 +110,9 @@ Return {"findings": []} if no security issues are found.
 ## Rules
 - Focus ONLY on changed lines (marked + or -). Do not report issues in unchanged context.
 - Be precise about affected line numbers.
-- Provide specific, actionable remediation over generic advice.
+- Provide detailed remediation in how_to_fix: include what to change, a short code example \
+showing the secure pattern, and a one-line explanation of why it prevents the vulnerability. \
+Never return one-sentence generic advice like "sanitize input".
 - Use Low confidence when context is insufficient.
 - Do not fabricate findings. Return empty findings if the code is secure."""
 
