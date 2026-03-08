@@ -248,9 +248,21 @@ def _remove_inline_comment(line: str) -> str:
 
 
 def _finding_id(finding: Finding) -> str:
-    """Compute a stable finding ID from CWE and description, matching cli._compute_finding_id."""
+    """Compute a stable finding ID from CWE, file path, and line range.
+
+    Uses stable attributes (not LLM-generated text) so the ID remains
+    consistent across runs even when the LLM varies its descriptions.
+    Must match cli._compute_finding_id.
+    """
     prefix = _cwe_to_prefix(finding.cwe_id or "unknown")
-    hash_input = f"{prefix}:{finding.what}"
+    parts = [prefix]
+    if finding.file_path:
+        parts.append(finding.file_path)
+    if finding.line_range:
+        parts.append(str(finding.line_range[0]))
+    if len(parts) == 1:
+        parts.append(finding.what)
+    hash_input = ":".join(parts)
     return f"{prefix}-{hashlib.sha256(hash_input.encode()).hexdigest()[:_FINGERPRINT_HASH_LENGTH]}"
 
 
