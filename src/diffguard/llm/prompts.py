@@ -71,7 +71,7 @@ Respond ONLY with a JSON object containing a "findings" array:
     {
       "what": "Brief description of the vulnerability",
       "why": "Explanation of the security impact and risk",
-      "how_to_fix": "Step-by-step remediation: what to change, a short code example showing the secure pattern, and why it prevents the vulnerability",
+      "how_to_fix": "Step-by-step remediation: what to change, a short code example showing the secure pattern",
       "severity": "Critical|High|Medium|Low|Info",
       "confidence": "High|Medium|Low",
       "cwe_id": "CWE-XXX",
