@@ -1,10 +1,16 @@
 """OpenAI async client for Diffguard security analysis."""
 
+from __future__ import annotations
+
 import logging
 import os
+from typing import TYPE_CHECKING
 
 import openai
 from openai import AsyncOpenAI
+
+if TYPE_CHECKING:
+    from openai.types.shared_params import ResponseFormatJSONSchema
 
 from diffguard.exceptions import (
     LLMAuthenticationError,
@@ -23,6 +29,72 @@ from diffguard.llm.prompts import SYSTEM_PROMPT
 logger = logging.getLogger(__name__)
 
 __all__ = ["SYSTEM_PROMPT", "OpenAIClient"]
+
+# Structured Outputs JSON schema for constrained decoding.
+# Forces the model to produce valid JSON matching this exact structure,
+# significantly reducing output variance between runs.
+_RESPONSE_SCHEMA: ResponseFormatJSONSchema = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "security_findings",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "what": {"type": "string"},
+                            "why": {"type": "string"},
+                            "how_to_fix": {"type": "string"},
+                            "severity": {
+                                "type": "string",
+                                "enum": ["Critical", "High", "Medium", "Low", "Info"],
+                            },
+                            "confidence": {
+                                "type": "string",
+                                "enum": ["High", "Medium", "Low"],
+                            },
+                            "cwe_id": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                            "owasp_category": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                            "line_range": {
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "start": {"type": "integer"},
+                                            "end": {"type": "integer"},
+                                        },
+                                        "required": ["start", "end"],
+                                        "additionalProperties": False,
+                                    },
+                                    {"type": "null"},
+                                ],
+                            },
+                            "file_path": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                        },
+                        "required": [
+                            "what",
+                            "why",
+                            "how_to_fix",
+                            "severity",
+                            "confidence",
+                            "cwe_id",
+                            "owasp_category",
+                            "line_range",
+                            "file_path",
+                        ],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "required": ["findings"],
+            "additionalProperties": False,
+        },
+    },
+}
 
 
 def _is_context_length_error(error: openai.BadRequestError) -> bool:
@@ -88,6 +160,7 @@ class OpenAIClient:
                 temperature=self._temperature,
                 top_p=1,
                 seed=42,
+                response_format=_RESPONSE_SCHEMA,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},

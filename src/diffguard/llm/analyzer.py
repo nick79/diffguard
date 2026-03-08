@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 from diffguard.exceptions import LLMError, LLMRateLimitError, LLMServerError, LLMTimeoutError
 from diffguard.llm.prompts import CodeContext, build_user_prompt
 from diffguard.llm.response import Finding, parse_llm_response
+from diffguard.severity_map import apply_severity_map
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ async def analyze_file(
         try:
             raw_response = await client.analyze(prompt)
             findings = parse_llm_response(raw_response)
+            findings = apply_severity_map(findings)
             return [replace(f, file_path=context.file_path) for f in findings]
         except _TRANSIENT_ERRORS:
             if attempt < attempts - 1:
