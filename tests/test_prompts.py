@@ -105,7 +105,7 @@ class TestSystemPrompt:
     def test_defines_severity_levels(self) -> None:
         for level in ["Critical", "High", "Medium", "Low", "Info"]:
             assert level in SYSTEM_PROMPT
-        assert "CVSS" in SYSTEM_PROMPT
+        assert "CWE-" in SYSTEM_PROMPT
 
     def test_defines_confidence_levels(self) -> None:
         prompt_lower = SYSTEM_PROMPT.lower()

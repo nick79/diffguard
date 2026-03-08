@@ -86,6 +86,7 @@ class OpenAIClient:
             response = await self._client.chat.completions.create(
                 model=self._model,
                 temperature=self._temperature,
+                top_p=1,
                 seed=42,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},

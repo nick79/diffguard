@@ -84,22 +84,66 @@ Respond ONLY with a JSON object containing a "findings" array:
 
 Return {"findings": []} if no security issues are found.
 
-## Severity Levels (CVSS-aligned)
-- **Critical** (CVSS 9.0-10.0): Easily exploitable, severe impact \
-— remote code execution, authentication bypass, full data breach.
-- **High** (CVSS 7.0-8.9): Exploitable with significant impact \
-— SQL injection, XSS with session hijack, privilege escalation.
-- **Medium** (CVSS 4.0-6.9): Specific conditions required or moderate impact \
-— CSRF, limited information disclosure, insecure defaults.
-- **Low** (CVSS 0.1-3.9): Minor issues, limited impact \
-— verbose error messages, minor information leaks.
-- **Info** (CVSS 0.0): Best practice recommendations, no direct security impact.
+## Severity Classification Rules
+Assign severity based on the CWE and exploit conditions. Use EXACTLY these rules:
+
+### Critical — Direct, unauthenticated exploitation leading to full system compromise
+Assign Critical ONLY when ALL of these conditions are met:
+1. The vulnerability allows remote code execution, OS command injection, or full authentication bypass.
+2. No user interaction or special privileges are required to exploit it.
+3. The vulnerable code path is directly reachable from external input.
+
+CWEs that are Critical (when conditions above are met):
+- CWE-78 (OS Command Injection), CWE-94 (Code Injection), CWE-95 (Eval Injection)
+- CWE-502 (Deserialization of Untrusted Data) — only if it leads to RCE
+- CWE-287 (Improper Authentication) — only if it's a complete bypass
+- CWE-306 (Missing Authentication for Critical Function)
+
+### High — Exploitable vulnerabilities with significant but bounded impact
+Assign High when the vulnerability is exploitable but requires SOME conditions:
+- User interaction required (e.g., clicking a link for XSS)
+- Attacker needs authenticated access
+- Impact is significant but not full system compromise
+
+CWEs that are typically High:
+- CWE-89 (SQL Injection), CWE-79 (XSS), CWE-22 (Path Traversal)
+- CWE-502 (Deserialization) — when impact is data tampering, not RCE
+- CWE-327 (Broken Crypto), CWE-330 (Insufficient Randomness for security tokens)
+- CWE-918 (SSRF), CWE-611 (XXE), CWE-776 (XML Entity Expansion)
+- CWE-798 (Hardcoded Credentials), CWE-259 (Hardcoded Password)
+- CWE-434 (Unrestricted File Upload)
+
+### Medium — Conditionally exploitable or moderate impact
+Assign Medium when exploitation requires specific conditions or impact is limited:
+- Requires chaining with another vulnerability
+- Limited to information disclosure (not credentials)
+- Requires specific configuration or environment
+
+CWEs that are typically Medium:
+- CWE-352 (CSRF), CWE-200 (Information Exposure)
+- CWE-532 (Log Injection / sensitive data in logs)
+- CWE-614 (Missing Secure flag on cookie), CWE-1004 (Missing HttpOnly)
+- CWE-311 (Missing Encryption), CWE-319 (Cleartext Transmission)
+- CWE-601 (Open Redirect)
+
+### Low — Minor issues with minimal security impact
+- CWE-209 (Error Message Information Exposure)
+- CWE-1236 (Improper Neutralization of Formula Elements)
+- Minor configuration weaknesses
+
+### Info — Best practice recommendations with no direct exploitability
+- Code quality suggestions, defense-in-depth recommendations
+
+### Severity override rules
+- If confidence is Low, cap severity at Medium regardless of CWE.
+- If the vulnerable code is behind authentication AND requires admin privileges, reduce by one level.
+- Never assign Critical to a finding that requires user interaction to exploit.
 
 ## Confidence Levels
-- **High**: Clear, well-established vulnerability pattern \
-(e.g., unsanitized SQL concatenation, hardcoded credentials).
+- **High**: Clear, well-established vulnerability pattern with complete context \
+(e.g., unsanitized SQL concatenation, hardcoded credentials, pickle.loads on user input).
 - **Medium**: Suspicious code but incomplete context \
-(e.g., input validation may exist elsewhere).
+(e.g., input validation may exist elsewhere, sanitization might happen in a calling function).
 - **Low**: Possible concern based on patterns, but significant uncertainty remains.
 
 ## Classification
@@ -114,7 +158,8 @@ Return {"findings": []} if no security issues are found.
 showing the secure pattern, and a one-line explanation of why it prevents the vulnerability. \
 Never return one-sentence generic advice like "sanitize input".
 - Use Low confidence when context is insufficient.
-- Do not fabricate findings. Return empty findings if the code is secure."""
+- Do not fabricate findings. Return empty findings if the code is secure.
+- Be consistent: the same code pattern with the same CWE must always get the same severity."""
 
 _TRUNCATION_MARKER = "... [truncated for token limit]"
 _FOOTER = "Analyze the above code changes for security vulnerabilities."
