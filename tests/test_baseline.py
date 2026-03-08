@@ -311,7 +311,7 @@ class TestIsSuppressed:
     def test_match_by_finding_id(self) -> None:
         baseline = [
             BaselineEntry(
-                finding_id="cwe89",
+                finding_id="cwe89-a93ce531a288e825",
                 cwe_id="CWE-89",
                 code_hash="abc123",
                 reason="False positive",
@@ -336,10 +336,10 @@ class TestIsSuppressed:
         finding = _make_finding(cwe_id="CWE-89", file_path="src/db.py")
         assert is_suppressed(finding, baseline) is False
 
-    def test_match_by_fingerprint(self) -> None:
+    def test_no_match_same_cwe_different_what(self) -> None:
         baseline = [
             BaselineEntry(
-                finding_id="different-id",
+                finding_id="cwe89-0000000000000000",
                 cwe_id="CWE-89",
                 code_hash="abc123",
                 reason="False positive",
@@ -348,7 +348,7 @@ class TestIsSuppressed:
             ),
         ]
         finding = _make_finding(cwe_id="CWE-89", file_path="src/db.py")
-        assert is_suppressed(finding, baseline) is True
+        assert is_suppressed(finding, baseline) is False
 
     def test_empty_baseline(self) -> None:
         finding = _make_finding()
@@ -368,11 +368,50 @@ class TestIsSuppressed:
         assert is_suppressed(finding, baseline) is False
 
 
+class TestSameCweSameFileOnlyOneMatches:
+    def test_only_matching_finding_suppressed(self) -> None:
+        finding_a = _make_finding(cwe_id="CWE-89", file_path="src/db.py", what="SQL Injection")
+        finding_b = _make_finding(cwe_id="CWE-89", file_path="src/db.py", what="Second SQL Injection")
+        baseline = [
+            BaselineEntry(
+                finding_id="cwe89-a93ce531a288e825",
+                cwe_id="CWE-89",
+                code_hash="abc123",
+                reason="FP",
+                added_at="2025-01-15T10:30:00Z",
+                file_path="src/db.py",
+            ),
+        ]
+        assert is_suppressed(finding_a, baseline) is True
+        assert is_suppressed(finding_b, baseline) is False
+
+    def test_filter_keeps_non_matching_same_cwe(self) -> None:
+        finding_a = _make_finding(cwe_id="CWE-89", file_path="src/db.py", what="SQL Injection")
+        finding_b = _make_finding(cwe_id="CWE-89", file_path="src/db.py", what="Second SQL Injection")
+        baseline = [
+            BaselineEntry(
+                finding_id="cwe89-a93ce531a288e825",
+                cwe_id="CWE-89",
+                code_hash="abc123",
+                reason="FP",
+                added_at="2025-01-15T10:30:00Z",
+                file_path="src/db.py",
+            ),
+        ]
+        active = filter_suppressed([finding_a, finding_b], baseline)
+        assert len(active) == 1
+        assert active[0].what == "Second SQL Injection"
+
+        suppressed = get_suppressed([finding_a, finding_b], baseline)
+        assert len(suppressed) == 1
+        assert suppressed[0].what == "SQL Injection"
+
+
 class TestFilterSuppressed:
     def test_filters_suppressed_findings(self) -> None:
         baseline = [
             BaselineEntry(
-                finding_id="cwe89",
+                finding_id="cwe89-a93ce531a288e825",
                 cwe_id="CWE-89",
                 code_hash="abc123",
                 reason="FP",
@@ -380,7 +419,7 @@ class TestFilterSuppressed:
                 file_path="src/db.py",
             ),
             BaselineEntry(
-                finding_id="cwe79",
+                finding_id="cwe79-85fea705d69897cf",
                 cwe_id="CWE-79",
                 code_hash="def456",
                 reason="Escaped",
@@ -404,7 +443,7 @@ class TestGetSuppressed:
     def test_returns_suppressed_findings(self) -> None:
         baseline = [
             BaselineEntry(
-                finding_id="cwe89",
+                finding_id="cwe89-a93ce531a288e825",
                 cwe_id="CWE-89",
                 code_hash="abc123",
                 reason="FP",
@@ -412,7 +451,7 @@ class TestGetSuppressed:
                 file_path="src/db.py",
             ),
             BaselineEntry(
-                finding_id="cwe79",
+                finding_id="cwe79-85fea705d69897cf",
                 cwe_id="CWE-79",
                 code_hash="def456",
                 reason="Escaped",

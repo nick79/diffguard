@@ -37,7 +37,7 @@ class OpenAIClient:
     Reads the API key from the OPENAI_API_KEY environment variable.
     """
 
-    def __init__(self, *, model: str = "gpt-5.2", timeout: int = 120) -> None:
+    def __init__(self, *, model: str = "gpt-5.2", timeout: int = 120, temperature: float = 0.0) -> None:
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if not api_key.strip():
             msg = (
@@ -50,6 +50,7 @@ class OpenAIClient:
         self._client = AsyncOpenAI(api_key=api_key, timeout=timeout, max_retries=0)
         self._model = model
         self._timeout = timeout
+        self._temperature = temperature
 
     @property
     def model(self) -> str:
@@ -84,6 +85,7 @@ class OpenAIClient:
         try:
             response = await self._client.chat.completions.create(
                 model=self._model,
+                temperature=self._temperature,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},

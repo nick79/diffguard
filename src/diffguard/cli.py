@@ -371,7 +371,7 @@ async def _run(
         _handle_dry_run(prepared, verbose=verbose, json_output=json_output, output=output)
         return  # _handle_dry_run raises typer.Exit, but guard return for clarity
 
-    client = OpenAIClient(model=config.model, timeout=config.timeout)
+    client = OpenAIClient(model=config.model, timeout=config.timeout, temperature=config.temperature)
 
     try:
         if verbose:

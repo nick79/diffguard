@@ -63,6 +63,7 @@ class DiffguardConfig(BaseModel):
 
     # LLM settings
     model: str = Field(default="gpt-5.2", description="OpenAI model to use for analysis")
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0, description="LLM sampling temperature (0 = deterministic)")
     max_concurrent_api_calls: int = Field(default=5, ge=1, description="Maximum concurrent API calls")
     timeout: int = Field(default=120, ge=1, description="API timeout in seconds")
 

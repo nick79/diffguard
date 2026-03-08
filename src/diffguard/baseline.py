@@ -131,15 +131,8 @@ def is_suppressed(finding: Finding, baseline: list[BaselineEntry]) -> bool:
     if not baseline:
         return False
 
-    finding_id = _finding_id(finding)
-
-    for entry in baseline:
-        if finding_id and entry.finding_id == finding_id:
-            return True
-        if entry.cwe_id == (finding.cwe_id or "") and entry.file_path == (finding.file_path or ""):
-            return True
-
-    return False
+    fid = _finding_id(finding)
+    return any(entry.finding_id == fid for entry in baseline)
 
 
 def filter_suppressed(findings: list[Finding], baseline: list[BaselineEntry]) -> list[Finding]:
@@ -254,12 +247,11 @@ def _remove_inline_comment(line: str) -> str:
     return "".join(result)
 
 
-def _finding_id(finding: Finding) -> str | None:
-    """Extract a finding ID from a Finding, matching baseline format."""
-    if not finding.cwe_id:
-        return None
-    cwe_num = finding.cwe_id.lower().replace("cwe-", "cwe")
-    return cwe_num
+def _finding_id(finding: Finding) -> str:
+    """Compute a stable finding ID from CWE and description, matching cli._compute_finding_id."""
+    prefix = _cwe_to_prefix(finding.cwe_id or "unknown")
+    hash_input = f"{prefix}:{finding.what}"
+    return f"{prefix}-{hashlib.sha256(hash_input.encode()).hexdigest()[:_FINGERPRINT_HASH_LENGTH]}"
 
 
 def _parse_entry(raw: object, path: Path) -> BaselineEntry:

@@ -16,6 +16,9 @@
 # Patterns identifying third-party code paths (excluded from symbol resolution)
 # third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]
 
+# LLM sampling temperature (0 = deterministic, higher = more creative)
+# temperature = 0.0
+
 # Maximum concurrent API calls
 # max_concurrent_api_calls = 5
 

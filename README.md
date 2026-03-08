@@ -109,6 +109,9 @@ scope_size_limit = 200  # default
 # How deep to follow imports for symbol resolution
 symbol_resolution_depth = 1  # default
 
+# LLM sampling temperature (0 = deterministic, higher = more creative)
+temperature = 0.0  # default
+
 # Maximum concurrent API calls
 max_concurrent_api_calls = 5  # default
 

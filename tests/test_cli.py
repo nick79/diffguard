@@ -347,7 +347,7 @@ class TestGitError:
         assert "git diff failed" in result.output
 
 
-def _make_baseline_entry(finding_id: str = "cwe89", cwe_id: str = "CWE-89") -> BaselineEntry:
+def _make_baseline_entry(finding_id: str = "cwe89-a93ce531a288e825", cwe_id: str = "CWE-89") -> BaselineEntry:
     """Create a baseline entry matching _make_finding's CWE and file_path."""
     return BaselineEntry(
         finding_id=finding_id,
@@ -504,7 +504,7 @@ class TestBaselineIntegration:
         mock_client_cls.return_value = MagicMock()
         mock_analyze.return_value = AnalysisResult(findings=[critical_finding])
         mock_load_baseline.return_value = [
-            _make_baseline_entry(finding_id="cwe94", cwe_id="CWE-94"),
+            _make_baseline_entry(finding_id="cwe94-1ff2d90c0662f624", cwe_id="CWE-94"),
         ]
 
         result = runner.invoke(app)
