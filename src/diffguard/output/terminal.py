@@ -125,7 +125,7 @@ def print_findings(findings: list[Finding], console: Console) -> None:
     console.print(table)
 
 
-def print_finding_detail(finding: Finding, console: Console) -> None:
+def print_finding_detail(finding: Finding, console: Console, *, finding_id: str | None = None) -> None:
     """Print a detailed panel for a single finding."""
     style = SEVERITY_STYLES.get(finding.severity, "")
     lines: list[str] = [
@@ -138,18 +138,27 @@ def print_finding_detail(finding: Finding, console: Console) -> None:
     if finding.owasp_category:
         lines.append(f"[bold]OWASP:[/bold] {finding.owasp_category}")
     lines.append(f"[bold]Confidence:[/bold] {finding.confidence.value}")
+    if finding_id:
+        lines.append(f"[bold]ID:[/bold] [dim]{finding_id}[/dim]")
 
     title = f"{finding.severity.value}: {truncate(finding.what, 60)}"
     content = "\n".join(lines)
     console.print(Panel(content, title=title, border_style=style))
 
 
-def print_findings_grouped(findings: list[Finding], console: Console) -> None:
+def print_findings_grouped(
+    findings: list[Finding],
+    console: Console,
+    *,
+    finding_ids: dict[Finding, str] | None = None,
+) -> None:
     """Print findings grouped by file path."""
     groups: dict[str, list[Finding]] = defaultdict(list)
     for finding in findings:
         key = finding.file_path or "(unknown)"
         groups[key].append(finding)
+
+    ids = finding_ids or {}
 
     for file_path, group in groups.items():
         console.print()
@@ -170,7 +179,7 @@ def print_findings_grouped(findings: list[Finding], console: Console) -> None:
         console.print(table)
 
         for finding in group:
-            print_finding_detail(finding, console)
+            print_finding_detail(finding, console, finding_id=ids.get(finding))
 
 
 def print_no_findings(stats: AnalysisStats, console: Console) -> None:

@@ -123,6 +123,13 @@ def _cwe_to_prefix(cwe: str) -> str:
     return cwe.lower().replace("-", "")
 
 
+def _compute_finding_id(finding: Finding) -> str:
+    """Compute a stable finding ID from CWE and description."""
+    prefix = _cwe_to_prefix(finding.cwe_id or "unknown")
+    hash_input = f"{prefix}:{finding.what}"
+    return f"{prefix}-{hashlib.sha256(hash_input.encode()).hexdigest()[:16]}"
+
+
 def _save_scan_cache(findings: list[Finding]) -> None:
     """Save findings to .diffguard/last_scan.json for baseline CLI enrichment."""
     cache_dir = Path(".diffguard")
@@ -131,9 +138,7 @@ def _save_scan_cache(findings: list[Finding]) -> None:
         "scan_time": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "findings": [
             {
-                "finding_id": _cwe_to_prefix(f.cwe_id or "unknown")
-                + "-"
-                + hashlib.sha256(f"{_cwe_to_prefix(f.cwe_id or 'unknown')}:{f.what}".encode()).hexdigest()[:16],
+                "finding_id": _compute_finding_id(f),
                 "cwe_id": f.cwe_id or "",
                 "what": f.what,
                 "file_path": f.file_path or "",
@@ -155,6 +160,11 @@ def _load_baseline_safe(config: DiffguardConfig) -> list[BaselineEntry]:
         return []
 
 
+def _build_finding_ids(findings: list[Finding]) -> dict[Finding, str]:
+    """Build a mapping of findings to their computed IDs."""
+    return {f: _compute_finding_id(f) for f in findings}
+
+
 def _print_results(
     result: AnalysisResult,
     console: Console,
@@ -167,7 +177,8 @@ def _print_results(
     stats = build_stats(result.findings, files_analyzed, suppressed_count=suppressed_count)
 
     if result.findings:
-        print_findings_grouped(result.findings, console)
+        finding_ids = _build_finding_ids(result.findings)
+        print_findings_grouped(result.findings, console, finding_ids=finding_ids)
         console.print()
         print_summary(stats, console)
         if blocking:

@@ -410,6 +410,39 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.load_config")
     @patch("diffguard.cli.is_git_repo", return_value=True)
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
+    def test_finding_id_shown_in_output(
+        self,
+        _mock_git: MagicMock,
+        mock_config: MagicMock,
+        mock_diff: MagicMock,
+        mock_parse: MagicMock,
+        mock_client_cls: MagicMock,
+        mock_analyze: AsyncMock,
+        mock_load_baseline: MagicMock,
+        _mock_commit: MagicMock,
+        _mock_branch: MagicMock,
+    ) -> None:
+        mock_config.return_value = DiffguardConfig()
+        mock_diff.return_value = "diff --git a/test.py b/test.py\n"
+        mock_parse.return_value = [_make_diff_file()]
+        mock_client_cls.return_value = MagicMock()
+        mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
+        mock_load_baseline.return_value = []
+
+        result = runner.invoke(app)
+
+        assert "cwe89-a93ce531a288e825" in result.output
+
+    @patch("diffguard.cli.get_branch_name", return_value="main")
+    @patch("diffguard.cli.get_commit_hash", return_value="abc123")
+    @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
+    @patch("diffguard.cli.OpenAIClient")
+    @patch("diffguard.cli.parse_diff")
+    @patch("diffguard.cli.get_staged_diff")
+    @patch("diffguard.cli.load_config")
+    @patch("diffguard.cli.is_git_repo", return_value=True)
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
     def test_suppressed_findings_excluded_from_output(
         self,
         _mock_git: MagicMock,
