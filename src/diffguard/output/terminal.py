@@ -54,6 +54,7 @@ class AnalysisStats:
     files_analyzed: int
     findings_count: int
     severity_counts: dict[SeverityLevel, int] = field(default_factory=dict)
+    suppressed_count: int = 0
 
 
 def format_line_range(line_range: tuple[int, int] | None) -> str:
@@ -92,7 +93,7 @@ def shorten_path(path: str, max_len: int) -> str:
     return f".../{parts[-1]}"
 
 
-def build_stats(findings: list[Finding], files_analyzed: int) -> AnalysisStats:
+def build_stats(findings: list[Finding], files_analyzed: int, *, suppressed_count: int = 0) -> AnalysisStats:
     """Create AnalysisStats from a findings list."""
     severity_counts: dict[SeverityLevel, int] = defaultdict(int)
     for finding in findings:
@@ -101,6 +102,7 @@ def build_stats(findings: list[Finding], files_analyzed: int) -> AnalysisStats:
         files_analyzed=files_analyzed,
         findings_count=len(findings),
         severity_counts=dict(severity_counts),
+        suppressed_count=suppressed_count,
     )
 
 
@@ -173,12 +175,18 @@ def print_findings_grouped(findings: list[Finding], console: Console) -> None:
 
 def print_no_findings(stats: AnalysisStats, console: Console) -> None:
     """Print a success message when no findings exist."""
-    console.print(f"[green]✔ Analyzed {stats.files_analyzed} file(s) — No security issues found[/green]")
+    suffix = ""
+    if stats.suppressed_count > 0:
+        suffix = f" ({stats.suppressed_count} suppressed)"
+    console.print(f"[green]✔ Analyzed {stats.files_analyzed} file(s) — No security issues found{suffix}[/green]")
 
 
 def print_summary(stats: AnalysisStats, console: Console) -> None:
     """Print summary statistics for the analysis."""
-    console.print(f"Analyzed {stats.files_analyzed} file(s), found {stats.findings_count} issue(s)")
+    suppressed_suffix = ""
+    if stats.suppressed_count > 0:
+        suppressed_suffix = f" ({stats.suppressed_count} suppressed)"
+    console.print(f"Analyzed {stats.files_analyzed} file(s), found {stats.findings_count} issue(s){suppressed_suffix}")
 
     parts: list[str] = []
     for severity in _SEVERITY_ORDER:

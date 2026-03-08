@@ -183,7 +183,7 @@ Only the levels you specify are overridden — unmentioned levels keep their def
 
 ### Baseline Management
 
-Suppress known false positives so they don't appear in future scans.
+Suppress known false positives so they don't appear in future scans. Baselined findings are automatically excluded from scan results, exit code evaluation, and output. If any findings are suppressed, the summary shows the count (e.g., "2 issues found (1 suppressed)").
 
 #### Adding a finding to the baseline
 

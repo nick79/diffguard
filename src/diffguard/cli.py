@@ -14,9 +14,10 @@ import typer
 from rich.console import Console
 
 from diffguard import __version__
+from diffguard.baseline import BaselineEntry, filter_suppressed, get_suppressed, load_baseline
 from diffguard.baseline_cli import baseline_app
 from diffguard.config import DiffguardConfig, load_config
-from diffguard.exceptions import ConfigError, DiffguardError, GitError, ReportWriteError
+from diffguard.exceptions import BaselineError, ConfigError, DiffguardError, GitError, ReportWriteError
 from diffguard.git import get_branch_name, get_commit_hash, get_staged_diff, is_git_repo, parse_diff
 from diffguard.llm import AnalysisResult, OpenAIClient, build_user_prompt, estimate_tokens
 from diffguard.llm.analyzer import FileAnalysisError, analyze_files
@@ -145,15 +146,25 @@ def _save_scan_cache(findings: list[Finding]) -> None:
         (cache_dir / "last_scan.json").write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
 
 
+def _load_baseline_safe(config: DiffguardConfig) -> list[BaselineEntry]:
+    """Load baseline entries, returning empty list on error with a warning."""
+    try:
+        return load_baseline(Path(config.baseline_path))
+    except BaselineError as exc:
+        typer.echo(f"Warning: Could not load baseline: {exc}", err=True)
+        return []
+
+
 def _print_results(
     result: AnalysisResult,
     console: Console,
     *,
     files_analyzed: int,
     blocking: bool,
+    suppressed_count: int = 0,
 ) -> None:
     """Print analysis results to the terminal using rich formatting."""
-    stats = build_stats(result.findings, files_analyzed)
+    stats = build_stats(result.findings, files_analyzed, suppressed_count=suppressed_count)
 
     if result.findings:
         print_findings_grouped(result.findings, console)
@@ -179,10 +190,17 @@ def _route_output(
     console: Console,
     metadata: ReportMetadata,
     blocking: bool,
+    suppressed_count: int = 0,
 ) -> None:
     """Route analysis results to the appropriate output destinations."""
     if not json_output and not output:
-        _print_results(result, console, files_analyzed=metadata.files_analyzed, blocking=blocking)
+        _print_results(
+            result,
+            console,
+            files_analyzed=metadata.files_analyzed,
+            blocking=blocking,
+            suppressed_count=suppressed_count,
+        )
         if blocking:
             raise typer.Exit(code=1)
         return
@@ -196,7 +214,13 @@ def _route_output(
     if output:
         _write_json_file(report, output)
         if not json_output:
-            _print_results(result, console, files_analyzed=metadata.files_analyzed, blocking=blocking)
+            _print_results(
+                result,
+                console,
+                files_analyzed=metadata.files_analyzed,
+                blocking=blocking,
+                suppressed_count=suppressed_count,
+            )
             console.print(f"Report saved to {output}")
     if blocking:
         raise typer.Exit(code=1)
@@ -357,6 +381,16 @@ async def _run(
 
     _save_scan_cache(result.findings)
 
+    baseline = _load_baseline_safe(config)
+    suppressed = get_suppressed(result.findings, baseline)
+    active_findings = filter_suppressed(result.findings, baseline)
+    suppressed_count = len(suppressed)
+
+    if verbose and not json_output and suppressed_count > 0:
+        for finding in suppressed:
+            typer.echo(f"  Suppressed: {finding.cwe_id or 'unknown'} — {finding.what}", err=True)
+
+    result.findings = active_findings
     blocking = should_block(result.findings, config)
 
     report_metadata = ReportMetadata(
@@ -364,6 +398,7 @@ async def _run(
         analysis_time_seconds=elapsed,
         commit_hash=get_commit_hash(),
         branch_name=get_branch_name(),
+        suppressed_count=suppressed_count,
     )
 
     _route_output(
@@ -373,4 +408,5 @@ async def _run(
         console=console,
         metadata=report_metadata,
         blocking=blocking,
+        suppressed_count=suppressed_count,
     )

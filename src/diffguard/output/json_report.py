@@ -21,6 +21,7 @@ class ReportMetadata:
     analysis_time_seconds: float | None = None
     commit_hash: str | None = None
     branch_name: str | None = None
+    suppressed_count: int = 0
 
 
 def _serialize_finding(finding: Finding) -> dict[str, Any]:
@@ -60,6 +61,8 @@ def _build_metadata_dict(metadata: ReportMetadata) -> dict[str, Any]:
         d["commit_hash"] = metadata.commit_hash
     if metadata.branch_name is not None:
         d["branch_name"] = metadata.branch_name
+    if metadata.suppressed_count > 0:
+        d["suppressed_count"] = metadata.suppressed_count
     return d
 
 
@@ -73,12 +76,15 @@ def generate_report(findings: list[Finding], metadata: ReportMetadata) -> dict[s
     Returns:
         Dict ready for JSON serialization.
     """
+    summary = _build_summary(findings)
+    if metadata.suppressed_count > 0:
+        summary["suppressed"] = metadata.suppressed_count
     return {
         "schema_version": "1.0",
         "version": __version__,
         "timestamp": datetime.now(UTC).isoformat(),
         "metadata": _build_metadata_dict(metadata),
-        "summary": _build_summary(findings),
+        "summary": summary,
         "findings": [_serialize_finding(f) for f in findings],
     }
 
