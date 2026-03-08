@@ -184,6 +184,40 @@ high = "warn"      # downgrade High to warning-only
 
 Only the levels you specify are overridden — unmentioned levels keep their defaults.
 
+### Severity Classification
+
+Diffguard uses a two-stage approach to classify finding severity:
+
+1. **LLM identifies the vulnerability** — the OpenAI model detects security issues and assigns a CWE identifier (e.g., CWE-89 for SQL Injection).
+2. **Deterministic severity mapping** — a built-in CWE-to-severity mapping (295 CWEs) assigns the final severity in code, ensuring the same CWE always gets the same severity regardless of LLM output variance.
+
+This hybrid approach combines the LLM's ability to *find* vulnerabilities with deterministic, standards-based severity assignment. The same codebase will always produce the same severity breakdown across runs.
+
+#### Severity levels
+
+| Level | Description | Examples |
+|-------|-------------|----------|
+| **Critical** | Unauthenticated RCE, command/code injection, complete auth bypass | OS command injection (CWE-78), eval injection (CWE-95), SSTI (CWE-1336) |
+| **High** | Exploitable with significant impact, may require some conditions | SQL injection (CWE-89), XSS (CWE-79), path traversal (CWE-22), SSRF (CWE-918) |
+| **Medium** | Conditional exploitation or moderate impact | CSRF (CWE-352), information disclosure (CWE-200), open redirect (CWE-601) |
+| **Low** | Minor issues with minimal security impact | Verbose error messages (CWE-209), debug code (CWE-489), obsolete functions |
+| **Info** | Best practice recommendations, no direct exploitability | Code quality, insufficient logging, coding standards |
+
+#### Override rules
+
+- **Low confidence cap**: If the LLM has low confidence in a finding, severity is capped at Medium — preventing high-severity alerts on uncertain detections.
+- **Unmapped CWEs**: For CWEs not in the built-in map, the LLM's suggested severity is used as a fallback.
+
+#### Sources
+
+The built-in CWE-to-severity mapping covers 295 CWEs compiled from:
+
+- [MITRE CWE Top 25 (2024/2025)](https://cwe.mitre.org/top25/) — most dangerous software weaknesses
+- [OWASP Top 10 (2021)](https://owasp.org/www-project-top-ten/) — web application security risks
+- [SANS Top 25](https://www.sans.org/top25-software-errors) — most dangerous software errors
+- [CWE-1003 Simplified Mapping](https://cwe.mitre.org/data/definitions/1003.html) — commonly mapped CWEs in published vulnerabilities
+- SAST tool coverage from SonarQube, Semgrep, CodeQL, Checkmarx, Fortify, GitLab SAST, and Mend SAST
+
 ### Baseline Management
 
 Suppress known false positives so they don't appear in future scans. Baselined findings are automatically excluded from scan results, exit code evaluation, and output. If any findings are suppressed, the summary shows the count (e.g., "2 issues found (1 suppressed)").
