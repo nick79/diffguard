@@ -26,11 +26,13 @@ from diffguard.llm import (
     CodeContext,
     DiffLine,
     FileAnalysisError,
+    Finding,
     LLMClient,
     ScopeContext,
     SymbolDef,
     analyze_files,
 )
+from diffguard.llm.response import ConfidenceLevel
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -46,8 +48,12 @@ __all__ = [
     "FileContext",
     "PreparedContext",
     "analyze_staged_changes",
+    "filter_by_confidence",
     "prepare_file_contexts",
 ]
+
+# Confidence ordering: HIGH > MEDIUM > LOW (lower index = higher confidence)
+_CONFIDENCE_ORDER = [ConfidenceLevel.HIGH, ConfidenceLevel.MEDIUM, ConfidenceLevel.LOW]
 
 
 @dataclass
@@ -71,6 +77,26 @@ class PreparedContext:
     file_contexts: list[FileContext] = field(default_factory=list)
     code_contexts: list[CodeContext] = field(default_factory=list)
     errors: list[FileAnalysisError] = field(default_factory=list)
+
+
+def filter_by_confidence(
+    findings: list[Finding],
+    min_confidence: ConfidenceLevel,
+) -> list[Finding]:
+    """Filter findings to only those meeting the minimum confidence level.
+
+    Args:
+        findings: List of findings to filter.
+        min_confidence: Minimum confidence level to keep.
+
+    Returns:
+        Filtered list of findings.
+    """
+    if min_confidence == ConfidenceLevel.LOW:
+        return findings
+
+    min_idx = _CONFIDENCE_ORDER.index(min_confidence)
+    return [f for f in findings if _CONFIDENCE_ORDER.index(f.confidence) <= min_idx]
 
 
 def prepare_file_contexts(
@@ -153,6 +179,7 @@ async def analyze_staged_changes(
         on_progress=on_progress,
     )
 
+    result.findings = filter_by_confidence(result.findings, config.min_confidence)
     result.errors.extend(prepared.errors)
     return result
 

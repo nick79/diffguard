@@ -194,6 +194,10 @@ class OpenAIClient:
             msg = "Failed to connect to OpenAI API. Check your network connection."
             raise LLMConnectionError(msg) from e
 
+        fingerprint = getattr(response, "system_fingerprint", None)
+        if fingerprint:
+            logger.debug("system_fingerprint=%s (model=%s)", fingerprint, self._model)
+
         choice = response.choices[0]
         content = choice.message.content
 

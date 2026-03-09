@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 from diffguard.config import CONFIG_FILENAME, DiffguardConfig, find_config_file, load_config
 from diffguard.exceptions import ConfigError
+from diffguard.llm.response import ConfidenceLevel
 
 
 class TestDiffguardConfigDefaults:
@@ -260,3 +261,31 @@ class TestDiffguardConfigValidation:
         """Timeout must be >= 1."""
         with pytest.raises(ValueError):
             DiffguardConfig(timeout=0)
+
+
+class TestMinConfidence:
+    def test_default_is_low(self) -> None:
+        config = DiffguardConfig()
+        assert config.min_confidence == ConfidenceLevel.LOW
+
+    def test_accepts_enum_value(self) -> None:
+        config = DiffguardConfig(min_confidence=ConfidenceLevel.MEDIUM)
+        assert config.min_confidence == ConfidenceLevel.MEDIUM
+
+    def test_parses_string_value(self) -> None:
+        config = DiffguardConfig(**{"min_confidence": "Medium"})
+        assert config.min_confidence == ConfidenceLevel.MEDIUM
+
+    def test_parses_case_insensitive(self) -> None:
+        config = DiffguardConfig(**{"min_confidence": "HIGH"})
+        assert config.min_confidence == ConfidenceLevel.HIGH
+
+    def test_invalid_string_raises(self) -> None:
+        with pytest.raises(ConfigError, match="Invalid min_confidence"):
+            DiffguardConfig(**{"min_confidence": "invalid"})
+
+    def test_from_toml(self, tmp_path: Path) -> None:
+        config_file = tmp_path / CONFIG_FILENAME
+        config_file.write_text('min_confidence = "Medium"\n')
+        config = load_config(config_file)
+        assert config.min_confidence == ConfidenceLevel.MEDIUM

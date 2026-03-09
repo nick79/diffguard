@@ -112,6 +112,10 @@ symbol_resolution_depth = 1  # default
 # LLM sampling temperature (0 = deterministic, higher = more creative)
 temperature = 0.0  # default
 
+# Minimum confidence level for findings ("Low", "Medium", "High")
+# Set to "Medium" to filter out borderline findings and improve run-to-run consistency
+min_confidence = "Low"  # default (keep all findings)
+
 # Maximum concurrent API calls
 max_concurrent_api_calls = 5  # default
 

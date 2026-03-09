@@ -30,7 +30,7 @@ from diffguard.output.terminal import (
     print_no_findings,
     print_summary,
 )
-from diffguard.pipeline import PreparedContext, analyze_staged_changes, prepare_file_contexts
+from diffguard.pipeline import PreparedContext, analyze_staged_changes, filter_by_confidence, prepare_file_contexts
 from diffguard.severity import should_block
 
 app = typer.Typer(
@@ -336,6 +336,7 @@ async def _run_verbose_analysis(
         max_concurrent=config.max_concurrent_api_calls,
         timeout_per_file=float(config.timeout),
     )
+    result.findings = filter_by_confidence(result.findings, config.min_confidence)
     result.errors.extend(prepared.errors)
     elapsed = time.monotonic() - start
 

@@ -19,7 +19,13 @@ from diffguard.llm import (
     SymbolDef,
 )
 from diffguard.llm.response import ConfidenceLevel, SeverityLevel
-from diffguard.pipeline import FileContext, _build_diff_lines, _file_context_to_code_context, analyze_staged_changes
+from diffguard.pipeline import (
+    FileContext,
+    _build_diff_lines,
+    _file_context_to_code_context,
+    analyze_staged_changes,
+    filter_by_confidence,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -544,3 +550,52 @@ class TestPipelineConcurrency:
 
         assert captured_kwargs["max_concurrent"] == 3
         assert captured_kwargs["timeout_per_file"] == 60.0
+
+
+# ---------------------------------------------------------------------------
+# filter_by_confidence
+# ---------------------------------------------------------------------------
+
+
+def _finding_with_confidence(confidence: ConfidenceLevel) -> Finding:
+    return Finding(
+        what="test",
+        why="test",
+        how_to_fix="test",
+        severity=SeverityLevel.HIGH,
+        confidence=confidence,
+    )
+
+
+class TestFilterByConfidence:
+    def test_low_threshold_keeps_all(self) -> None:
+        findings = [
+            _finding_with_confidence(ConfidenceLevel.HIGH),
+            _finding_with_confidence(ConfidenceLevel.MEDIUM),
+            _finding_with_confidence(ConfidenceLevel.LOW),
+        ]
+        result = filter_by_confidence(findings, ConfidenceLevel.LOW)
+        assert len(result) == 3
+
+    def test_medium_threshold_filters_low(self) -> None:
+        findings = [
+            _finding_with_confidence(ConfidenceLevel.HIGH),
+            _finding_with_confidence(ConfidenceLevel.MEDIUM),
+            _finding_with_confidence(ConfidenceLevel.LOW),
+        ]
+        result = filter_by_confidence(findings, ConfidenceLevel.MEDIUM)
+        assert len(result) == 2
+        assert all(f.confidence != ConfidenceLevel.LOW for f in result)
+
+    def test_high_threshold_keeps_only_high(self) -> None:
+        findings = [
+            _finding_with_confidence(ConfidenceLevel.HIGH),
+            _finding_with_confidence(ConfidenceLevel.MEDIUM),
+            _finding_with_confidence(ConfidenceLevel.LOW),
+        ]
+        result = filter_by_confidence(findings, ConfidenceLevel.HIGH)
+        assert len(result) == 1
+        assert result[0].confidence == ConfidenceLevel.HIGH
+
+    def test_empty_list(self) -> None:
+        assert filter_by_confidence([], ConfidenceLevel.HIGH) == []
