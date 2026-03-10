@@ -122,7 +122,7 @@ max_concurrent_api_calls = 5  # default
 # API timeout in seconds
 timeout = 120  # default
 
-# Patterns identifying third-party code paths (excluded from symbol resolution)
+# Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
 third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]  # default
 
 # Path to baseline file (relative to project root)
@@ -291,12 +291,12 @@ Files with unsupported or unrecognized extensions are still included in the diff
 - Standard library modules (`os`, `json`, `pathlib`, etc.) are excluded
 - Modules whose resolved file path matches a `third_party_patterns` entry are excluded
 
-**Third-party code patterns:** The `third_party_patterns` config controls which paths are considered third-party for symbol resolution. Default patterns for Python:
+**Third-party code patterns:** The `third_party_patterns` config controls which paths are excluded from analysis and symbol resolution. Files under these paths are skipped entirely in the pipeline (never sent to the LLM) and are also excluded from symbol resolution. Default patterns for Python:
 - `venv/` — standard virtual environment
 - `.venv/` — common virtual environment alternative
 - `site-packages/` — installed packages
 
-These patterns are matched against the resolved file path. If a symbol's definition lives under one of these directories, it is not included in the LLM context.
+These patterns are matched against file paths. Staged files under these directories are skipped during analysis, and symbols resolving to these directories are not included in the LLM context.
 
 **Module resolution:** Diffguard resolves Python imports to file paths using standard conventions:
 - `module.py` — single-file modules

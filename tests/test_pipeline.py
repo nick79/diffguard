@@ -7,8 +7,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from diffguard.ast.languages import Language
 from diffguard.config import DiffguardConfig
 from diffguard.context import Region
+from diffguard.exclusions import is_generated_file
 from diffguard.git import DiffFile, DiffHunk
 from diffguard.llm import (
     AnalysisResult,
@@ -23,6 +25,7 @@ from diffguard.pipeline import (
     FileContext,
     _build_diff_lines,
     _file_context_to_code_context,
+    _filter_analyzable_files,
     analyze_staged_changes,
     filter_by_confidence,
 )
@@ -599,3 +602,95 @@ class TestFilterByConfidence:
 
     def test_empty_list(self) -> None:
         assert filter_by_confidence([], ConfidenceLevel.HIGH) == []
+
+
+# ---------------------------------------------------------------------------
+# TestVendorPathFiltering
+# ---------------------------------------------------------------------------
+
+
+class TestVendorPathFiltering:
+    """Vendor/third-party path files are skipped in the pipeline filter."""
+
+    def test_skip_venv_files(self) -> None:
+        diff_files = [_make_diff_file("venv/lib/python3.14/site-packages/requests/api.py")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+    def test_skip_dot_venv_files(self) -> None:
+        diff_files = [_make_diff_file(".venv/lib/python3.14/helpers.py")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+    def test_skip_site_packages_files(self) -> None:
+        diff_files = [_make_diff_file("lib/site-packages/flask/app.py")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+    def test_skip_node_modules_files(self) -> None:
+        diff_files = [_make_diff_file("node_modules/lodash/index.js")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+    def test_custom_third_party_patterns(self) -> None:
+        config = DiffguardConfig(third_party_patterns=["custom_vendor/"])
+        diff_files = [_make_diff_file("custom_vendor/lib.py")]
+        result = _filter_analyzable_files(diff_files, config)
+        assert len(result) == 0
+
+    def test_normal_source_files_not_skipped(self) -> None:
+        diff_files = [_make_diff_file("src/diffguard/pipeline.py")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+        assert result[0][0].path == "src/diffguard/pipeline.py"
+
+
+# ---------------------------------------------------------------------------
+# TestGeneratedFileDetection
+# ---------------------------------------------------------------------------
+
+
+class TestGeneratedFileDetection:
+    """Generated file detection skeleton returns False for all languages."""
+
+    def test_skeleton_returns_false_for_python(self) -> None:
+        assert is_generated_file("src/app.py", ["import os"], Language.PYTHON) is False
+
+    def test_skeleton_returns_false_for_javascript(self) -> None:
+        assert is_generated_file("dist/app.js", [], Language.JAVASCRIPT) is False
+
+    def test_skeleton_returns_false_for_all_languages(self) -> None:
+        for lang in Language:
+            assert is_generated_file("some/file.txt", [], lang) is False
+
+    def test_generated_file_step_in_pipeline_does_not_skip(self) -> None:
+        diff_files = [_make_diff_file("src/app.py")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+
+
+# ---------------------------------------------------------------------------
+# TestFilterOrder
+# ---------------------------------------------------------------------------
+
+
+class TestFilterOrder:
+    """Filter order: binary → deleted → non-source → vendor → generated → sensitive."""
+
+    def test_mixed_files_filtered_correctly(self) -> None:
+        diff_files = [
+            _make_diff_file("src/app.py"),
+            _make_diff_file("image.py", is_binary=True),
+            _make_diff_file("old.py", is_deleted=True),
+            _make_diff_file("README.md"),
+            _make_diff_file("venv/lib/site-packages/pkg/mod.py"),
+            _make_diff_file("secrets.py"),
+        ]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        kept_paths = [df.path for df, _ in result]
+        assert "src/app.py" in kept_paths
+        assert "image.py" not in kept_paths
+        assert "old.py" not in kept_paths
+        assert "README.md" not in kept_paths
+        assert "venv/lib/site-packages/pkg/mod.py" not in kept_paths
+        assert "secrets.py" not in kept_paths

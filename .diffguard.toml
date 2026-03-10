@@ -13,7 +13,7 @@
 # How deep to follow imports for symbol resolution (0 = disabled)
 # symbol_resolution_depth = 1
 
-# Patterns identifying third-party code paths (excluded from symbol resolution)
+# Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
 # third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]
 
 # LLM sampling temperature (0 = deterministic, higher = more creative)

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from diffguard.ast import (
     Language,
+    Scope,
     detect_language,
     extract_imports,
     extract_scope_context,
@@ -20,7 +21,7 @@ from diffguard.ast import (
 )
 from diffguard.context import Region, build_file_regions, read_file_lines
 from diffguard.exceptions import ContextError, UnsupportedLanguageError
-from diffguard.exclusions import filter_sensitive_files
+from diffguard.exclusions import filter_sensitive_files, is_generated_file
 from diffguard.llm import (
     AnalysisResult,
     CodeContext,
@@ -54,6 +55,17 @@ __all__ = [
 
 # Confidence ordering: HIGH > MEDIUM > LOW (lower index = higher confidence)
 _CONFIDENCE_ORDER = [ConfidenceLevel.HIGH, ConfidenceLevel.MEDIUM, ConfidenceLevel.LOW]
+
+# Per-language node type configuration for symbol code extraction.
+# Each language defines: scope_types (definition nodes), wrapper_type (optional decorator-like
+# wrapper), and name_field (field name for the identifier).
+_SYMBOL_NODE_CONFIGS: dict[Language, tuple[frozenset[str], str | None, str]] = {
+    Language.PYTHON: (
+        frozenset({"function_definition", "class_definition"}),
+        "decorated_definition",
+        "name",
+    ),
+}
 
 
 @dataclass
@@ -184,6 +196,11 @@ async def analyze_staged_changes(
     return result
 
 
+def _is_vendor_path(file_path: str, patterns: list[str]) -> bool:
+    """Check if a file path matches any third-party/vendor path pattern."""
+    return any(pattern in file_path for pattern in patterns)
+
+
 def _filter_analyzable_files(
     diff_files: list[DiffFile],
     config: DiffguardConfig,
@@ -194,9 +211,10 @@ def _filter_analyzable_files(
     1. Skip binary files
     2. Skip deleted files
     3. Skip non-source files (language detection fails)
-    4. Skip sensitive files (.env, keys, etc.)
+    4. Skip vendor/third-party path files
+    5. Skip generated/minified files
+    6. Skip sensitive files (.env, keys, etc.)
     """
-    result: list[tuple[DiffFile, Language]] = []
     non_binary_non_deleted: list[DiffFile] = []
 
     for df in diff_files:
@@ -208,7 +226,7 @@ def _filter_analyzable_files(
             continue
         non_binary_non_deleted.append(df)
 
-    # Detect language before sensitive filtering (cheap check)
+    # Detect language (cheap check)
     with_language: list[tuple[DiffFile, Language]] = []
     for df in non_binary_non_deleted:
         lang = detect_language(df.path)
@@ -217,12 +235,29 @@ def _filter_analyzable_files(
             continue
         with_language.append((df, lang))
 
+    # Filter vendor/third-party paths
+    non_vendor: list[tuple[DiffFile, Language]] = []
+    for df, lang in with_language:
+        if _is_vendor_path(df.path, config.third_party_patterns):
+            logger.debug("Skipping vendor/third-party file: %s", df.path)
+            continue
+        non_vendor.append((df, lang))
+
+    # Filter generated/minified files
+    non_generated: list[tuple[DiffFile, Language]] = []
+    for df, lang in non_vendor:
+        if is_generated_file(df.path, [], lang):
+            logger.debug("Skipping generated file: %s", df.path)
+            continue
+        non_generated.append((df, lang))
+
     # Filter sensitive files
-    remaining_files = [df for df, _ in with_language]
+    remaining_files = [df for df, _ in non_generated]
     filter_result = filter_sensitive_files(remaining_files, config)
     kept_paths = {df.path for df in filter_result.kept}
 
-    for df, lang in with_language:
+    result: list[tuple[DiffFile, Language]] = []
+    for df, lang in non_generated:
         if df.path in kept_paths:
             result.append((df, lang))
         else:
@@ -342,25 +377,22 @@ def _build_symbols(
     config: DiffguardConfig,
 ) -> dict[str, SymbolDef]:
     """Find used symbols in regions and resolve first-party definitions."""
-    if language != Language.PYTHON:
-        return {}
-
     all_symbols: set[str] = set()
     for region in regions:
-        all_symbols |= find_used_symbols(tree, region.start_line, region.end_line, exclude_builtins=True)
+        all_symbols |= find_used_symbols(tree, region.start_line, region.end_line, language, exclude_builtins=True)
 
     if not all_symbols:
         return {}
 
-    imports = extract_imports(tree)
+    imports = extract_imports(tree, language)
     result: dict[str, SymbolDef] = {}
 
     for symbol in sorted(all_symbols):
         try:
-            resolved_path = resolve_symbol_definition(symbol, imports, project_root, current_file)
+            resolved_path = resolve_symbol_definition(symbol, imports, project_root, current_file, language)
             if resolved_path is None:
                 continue
-            if not is_first_party(str(resolved_path), project_root, config.third_party_patterns):
+            if not is_first_party(str(resolved_path), project_root, config.third_party_patterns, language):
                 continue
 
             resolved_lines = read_file_lines(resolved_path)
@@ -369,7 +401,7 @@ def _build_symbols(
             if resolved_tree is None:
                 continue
 
-            code = _extract_symbol_code(symbol, resolved_tree, resolved_lines, config.scope_size_limit)
+            code = _extract_symbol_code(symbol, resolved_tree, resolved_lines, config.scope_size_limit, language)
             if code is None:
                 continue
 
@@ -386,31 +418,38 @@ def _extract_symbol_code(
     tree: Tree,
     source_lines: list[str],
     limit: int,
+    language: Language,
 ) -> str | None:
-    """Walk top-level AST definitions for a matching name, extract source."""
+    """Walk top-level AST definitions for a matching name, extract source.
+
+    Uses per-language node type configuration. Returns None for languages
+    without symbol extraction support.
+    """
+    config = _SYMBOL_NODE_CONFIGS.get(language)
+    if config is None:
+        return None
+
+    scope_types, wrapper_type, name_field = config
+
     for child in tree.root_node.children:
         node = child
-        # Handle decorated definitions
-        if child.type == "decorated_definition":
+        if wrapper_type is not None and child.type == wrapper_type:
             for inner in child.children:
-                if inner.type in ("function_definition", "class_definition"):
+                if inner.type in scope_types:
                     node = inner
                     break
             else:
                 continue
 
-        if node.type not in ("function_definition", "class_definition"):
+        if node.type not in scope_types:
             continue
 
-        name_node = node.child_by_field_name("name")
+        name_node = node.child_by_field_name(name_field)
         if name_node is None or name_node.text is None:
             continue
         if str(name_node.text, "utf-8") != symbol:
             continue
 
-        from diffguard.ast.scope import Scope  # noqa: PLC0415
-
-        # Use the decorated definition's range if present
         start_row = int(child.start_point.row)
         end_row = int(node.end_point.row)
         scope = Scope(type=node.type, name=symbol, start_line=start_row + 1, end_line=end_row + 1)

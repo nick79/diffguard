@@ -1,9 +1,18 @@
 """AST parsing and language detection for diffguard."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from diffguard.ast.languages import Language, detect_language
 from diffguard.ast.parser import clear_parser_cache, get_parser, parse_file
-from diffguard.ast.python import Import, extract_imports, find_used_symbols, is_first_party, resolve_symbol_definition
+from diffguard.ast.python import Import
 from diffguard.ast.scope import Scope, extract_scope_context, find_enclosing_scope
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from tree_sitter import Tree
 
 __all__ = [
     "Import",
@@ -20,3 +29,83 @@ __all__ = [
     "parse_file",
     "resolve_symbol_definition",
 ]
+
+
+def extract_imports(tree: Tree, language: Language) -> list[Import]:
+    """Extract import statements from a parsed AST.
+
+    Dispatches to the language-specific implementation. Returns an empty
+    list for languages without import extraction support.
+    """
+    match language:
+        case Language.PYTHON:
+            from diffguard.ast.python import extract_python_imports  # noqa: PLC0415
+
+            return extract_python_imports(tree)
+        case _:
+            return []
+
+
+def find_used_symbols(
+    tree: Tree,
+    start_line: int,
+    end_line: int,
+    language: Language,
+    *,
+    exclude_builtins: bool = False,
+) -> set[str]:
+    """Find externally-referenced symbols in a line range (1-indexed, inclusive).
+
+    Dispatches to the language-specific implementation. Returns an empty
+    set for languages without symbol detection support.
+    """
+    match language:
+        case Language.PYTHON:
+            from diffguard.ast.python import find_python_used_symbols  # noqa: PLC0415
+
+            return find_python_used_symbols(tree, start_line, end_line, exclude_builtins=exclude_builtins)
+        case _:
+            return set()
+
+
+def is_first_party(
+    module_or_path: str,
+    project_root: Path,
+    third_party_patterns: list[str] | None,
+    language: Language,
+    *,
+    is_relative: bool = False,
+) -> bool:
+    """Determine whether an import is first-party project code.
+
+    Dispatches to the language-specific implementation. Returns False
+    for languages without first-party detection support.
+    """
+    match language:
+        case Language.PYTHON:
+            from diffguard.ast.python import is_python_first_party  # noqa: PLC0415
+
+            return is_python_first_party(module_or_path, project_root, third_party_patterns, is_relative=is_relative)
+        case _:
+            return False
+
+
+def resolve_symbol_definition(
+    symbol: str,
+    imports: list[Import],
+    project_root: Path,
+    current_file: Path | None,
+    language: Language,
+) -> Path | None:
+    """Resolve an imported symbol name to a file path in the project.
+
+    Dispatches to the language-specific implementation. Returns None
+    for languages without symbol resolution support.
+    """
+    match language:
+        case Language.PYTHON:
+            from diffguard.ast.python import resolve_python_symbol_definition  # noqa: PLC0415
+
+            return resolve_python_symbol_definition(symbol, imports, project_root, current_file)
+        case _:
+            return None

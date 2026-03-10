@@ -7,14 +7,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from diffguard.ast import Language, parse_file
-from diffguard.ast.python import (
-    Import,
+from diffguard.ast import (
+    Language,
     extract_imports,
     find_used_symbols,
     is_first_party,
+    parse_file,
     resolve_symbol_definition,
 )
+from diffguard.ast.python import Import
 
 if TYPE_CHECKING:
     from tree_sitter import Tree
@@ -130,11 +131,11 @@ def fake_project(tmp_path: Path) -> Path:
 
 
 class TestExtractImports:
-    """Tests for extract_imports()."""
+    """Tests for extract_imports() dispatcher."""
 
     def test_simple_import(self) -> None:
         tree = _parse(SIMPLE_IMPORT)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == "os"
         assert imports[0].names is None
@@ -142,41 +143,41 @@ class TestExtractImports:
 
     def test_import_with_alias(self) -> None:
         tree = _parse(ALIASED_IMPORT)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == "numpy"
         assert imports[0].alias == "np"
 
     def test_multiple_imports_one_line(self) -> None:
         tree = _parse(MULTI_IMPORT)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 3
         modules = {imp.module for imp in imports}
         assert modules == {"os", "sys", "json"}
 
     def test_from_import_single_name(self) -> None:
         tree = _parse(FROM_IMPORT_SINGLE)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == "mymodule"
         assert imports[0].names == ["helper"]
 
     def test_from_import_multiple_names(self) -> None:
         tree = _parse(FROM_IMPORT_MULTIPLE)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == "mymodule"
         assert imports[0].names == ["helper", "formatter", "validator"]
 
     def test_from_import_with_aliases(self) -> None:
         tree = _parse(FROM_IMPORT_ALIASED)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].name_aliases == [("helper", "h"), ("formatter", "fmt")]
 
     def test_star_import(self) -> None:
         tree = _parse(STAR_IMPORT)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == "mymodule"
         assert imports[0].names == ["*"]
@@ -184,7 +185,7 @@ class TestExtractImports:
 
     def test_relative_import_single_dot(self) -> None:
         tree = _parse(RELATIVE_IMPORT_SINGLE)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == ".local"
         assert imports[0].is_relative is True
@@ -192,7 +193,7 @@ class TestExtractImports:
 
     def test_relative_import_multiple_dots(self) -> None:
         tree = _parse(RELATIVE_IMPORT_MULTI_DOT)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == "...parent.module"
         assert imports[0].is_relative is True
@@ -200,7 +201,7 @@ class TestExtractImports:
 
     def test_relative_import_dots_only(self) -> None:
         tree = _parse(RELATIVE_IMPORT_DOTS_ONLY)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 1
         assert imports[0].module == "."
         assert imports[0].names == ["sibling"]
@@ -208,12 +209,17 @@ class TestExtractImports:
 
     def test_all_imports_from_fixture(self) -> None:
         tree = _parse(IMPORTS_PYTHON)
-        imports = extract_imports(tree)
+        imports = extract_imports(tree, Language.PYTHON)
         assert len(imports) == 10
         modules = [imp.module for imp in imports]
         assert "os" in modules
         assert "json" in modules
         assert "numpy" in modules
+
+    def test_unsupported_language_returns_empty(self) -> None:
+        tree = _parse(SIMPLE_IMPORT)
+        imports = extract_imports(tree, Language.JAVASCRIPT)
+        assert imports == []
 
 
 # ---------------------------------------------------------------------------
@@ -222,53 +228,58 @@ class TestExtractImports:
 
 
 class TestFindUsedSymbols:
-    """Tests for find_used_symbols()."""
+    """Tests for find_used_symbols() dispatcher."""
 
     def test_function_calls(self) -> None:
         tree = _parse(CODE_WITH_SYMBOLS)
-        symbols = find_used_symbols(tree, 1, 4)
+        symbols = find_used_symbols(tree, 1, 4, Language.PYTHON)
         assert "helper" in symbols
         assert "v" in symbols
 
     def test_attribute_access_root_only(self) -> None:
         tree = _parse(CODE_WITH_ATTRIBUTE)
-        symbols = find_used_symbols(tree, 1, 1)
+        symbols = find_used_symbols(tree, 1, 1, Language.PYTHON)
         assert "config" in symbols
         assert "settings" not in symbols
         assert "value" not in symbols
 
     def test_class_instantiation(self) -> None:
         tree = _parse(CODE_WITH_CLASS_INSTANTIATION)
-        symbols = find_used_symbols(tree, 1, 1)
+        symbols = find_used_symbols(tree, 1, 1, Language.PYTHON)
         assert "MyClass" in symbols
 
     def test_exclude_local_definitions(self) -> None:
         tree = _parse(CODE_WITH_LOCAL_DEF)
-        symbols = find_used_symbols(tree, 1, 2)
+        symbols = find_used_symbols(tree, 1, 2, Language.PYTHON)
         assert "print" in symbols
         assert "x" not in symbols
 
     def test_exclude_builtins(self) -> None:
         tree = _parse(CODE_WITH_BUILTINS)
-        symbols = find_used_symbols(tree, 1, 1, exclude_builtins=True)
+        symbols = find_used_symbols(tree, 1, 1, Language.PYTHON, exclude_builtins=True)
         assert "print" not in symbols
         assert "len" not in symbols
         assert "str" not in symbols
 
     def test_include_builtins_by_default(self) -> None:
         tree = _parse(CODE_WITH_BUILTINS)
-        symbols = find_used_symbols(tree, 1, 1, exclude_builtins=False)
+        symbols = find_used_symbols(tree, 1, 1, Language.PYTHON, exclude_builtins=False)
         assert "print" in symbols
 
     def test_function_params_excluded(self) -> None:
         tree = _parse(CODE_WITH_SYMBOLS)
-        symbols = find_used_symbols(tree, 1, 4)
+        symbols = find_used_symbols(tree, 1, 4, Language.PYTHON)
         assert "data" not in symbols
 
     def test_myclass_in_code_with_symbols(self) -> None:
         tree = _parse(CODE_WITH_SYMBOLS)
-        symbols = find_used_symbols(tree, 1, 4)
+        symbols = find_used_symbols(tree, 1, 4, Language.PYTHON)
         assert "MyClass" in symbols
+
+    def test_unsupported_language_returns_empty_set(self) -> None:
+        tree = _parse(CODE_WITH_SYMBOLS)
+        symbols = find_used_symbols(tree, 1, 4, Language.JAVASCRIPT)
+        assert symbols == set()
 
 
 # ---------------------------------------------------------------------------
@@ -277,29 +288,34 @@ class TestFindUsedSymbols:
 
 
 class TestIsFirstParty:
-    """Tests for is_first_party()."""
+    """Tests for is_first_party() dispatcher."""
 
     def test_stdlib_not_first_party(self) -> None:
-        assert is_first_party("os", Path("/project")) is False
-        assert is_first_party("sys", Path("/project")) is False
-        assert is_first_party("json", Path("/project")) is False
-        assert is_first_party("pathlib", Path("/project")) is False
+        assert is_first_party("os", Path("/project"), None, Language.PYTHON) is False
+        assert is_first_party("sys", Path("/project"), None, Language.PYTHON) is False
+        assert is_first_party("json", Path("/project"), None, Language.PYTHON) is False
+        assert is_first_party("pathlib", Path("/project"), None, Language.PYTHON) is False
 
     def test_relative_import_always_first_party(self) -> None:
-        assert is_first_party(".utils", Path("/project"), is_relative=True) is True
+        assert is_first_party(".utils", Path("/project"), None, Language.PYTHON, is_relative=True) is True
 
     def test_third_party_venv_pattern(self) -> None:
-        assert is_first_party("venv/lib/something", Path("/project"), ["venv/"]) is False
+        assert is_first_party("venv/lib/something", Path("/project"), ["venv/"], Language.PYTHON) is False
 
     def test_third_party_site_packages(self) -> None:
-        assert is_first_party("lib/site-packages/requests", Path("/project"), ["site-packages/"]) is False
+        assert (
+            is_first_party("lib/site-packages/requests", Path("/project"), ["site-packages/"], Language.PYTHON) is False
+        )
 
     def test_first_party_in_project(self, fake_project: Path) -> None:
-        assert is_first_party("src.utils", fake_project) is True
+        assert is_first_party("src.utils", fake_project, None, Language.PYTHON) is True
 
     def test_third_party_known_package(self, fake_project: Path) -> None:
         # "requests" is not a stdlib and won't resolve to a project file
-        assert is_first_party("requests", fake_project) is False
+        assert is_first_party("requests", fake_project, None, Language.PYTHON) is False
+
+    def test_unsupported_language_returns_false(self) -> None:
+        assert is_first_party("os", Path("/project"), None, Language.JAVASCRIPT) is False
 
 
 # ---------------------------------------------------------------------------
@@ -308,47 +324,47 @@ class TestIsFirstParty:
 
 
 class TestResolveSymbolDefinition:
-    """Tests for resolve_symbol_definition()."""
+    """Tests for resolve_symbol_definition() dispatcher."""
 
     def test_resolve_direct_module(self, fake_project: Path) -> None:
         imports = [Import(module="src.utils", names=["helper"])]
-        result = resolve_symbol_definition("helper", imports, fake_project)
+        result = resolve_symbol_definition("helper", imports, fake_project, None, Language.PYTHON)
         assert result is not None
         assert result.name == "utils.py"
 
     def test_resolve_package_init(self, fake_project: Path) -> None:
         imports = [Import(module="src.api", names=["handler"])]
-        result = resolve_symbol_definition("handler", imports, fake_project)
+        result = resolve_symbol_definition("handler", imports, fake_project, None, Language.PYTHON)
         assert result is not None
         assert result.name == "__init__.py"
 
     def test_resolve_not_found(self, fake_project: Path) -> None:
         imports = [Import(module="nonexistent", names=["missing"])]
-        result = resolve_symbol_definition("missing", imports, fake_project)
+        result = resolve_symbol_definition("missing", imports, fake_project, None, Language.PYTHON)
         assert result is None
 
     def test_resolve_relative_import(self, fake_project: Path) -> None:
         imports = [Import(module=".utils", names=["helper"], is_relative=True, level=1)]
         current_file = fake_project / "src" / "api" / "handler.py"
-        result = resolve_symbol_definition("helper", imports, fake_project, current_file)
+        result = resolve_symbol_definition("helper", imports, fake_project, current_file, Language.PYTHON)
         assert result is not None
         assert result.name == "utils.py"
         assert "api" in str(result)
 
     def test_resolve_symbol_not_in_imports(self, fake_project: Path) -> None:
         imports = [Import(module="src.utils", names=["helper"])]
-        result = resolve_symbol_definition("unknown_symbol", imports, fake_project)
+        result = resolve_symbol_definition("unknown_symbol", imports, fake_project, None, Language.PYTHON)
         assert result is None
 
     def test_resolve_aliased_import(self, fake_project: Path) -> None:
         imports = [Import(module="src.utils", alias="utils")]
-        result = resolve_symbol_definition("utils", imports, fake_project)
+        result = resolve_symbol_definition("utils", imports, fake_project, None, Language.PYTHON)
         assert result is not None
         assert result.name == "utils.py"
 
     def test_resolve_from_import_alias(self, fake_project: Path) -> None:
         imports = [Import(module="src.utils", name_aliases=[("helper", "h")])]
-        result = resolve_symbol_definition("h", imports, fake_project)
+        result = resolve_symbol_definition("h", imports, fake_project, None, Language.PYTHON)
         assert result is not None
         assert result.name == "utils.py"
 
@@ -356,6 +372,11 @@ class TestResolveSymbolDefinition:
         (tmp_path / "a.py").write_text("from b import thing\n")
         (tmp_path / "b.py").write_text("from a import other\n")
         imports = [Import(module="a", names=["thing"])]
-        result = resolve_symbol_definition("thing", imports, tmp_path)
+        result = resolve_symbol_definition("thing", imports, tmp_path, None, Language.PYTHON)
         assert result is not None
         assert result.name == "a.py"
+
+    def test_unsupported_language_returns_none(self, fake_project: Path) -> None:
+        imports = [Import(module="src.utils", names=["helper"])]
+        result = resolve_symbol_definition("helper", imports, fake_project, None, Language.JAVASCRIPT)
+        assert result is None

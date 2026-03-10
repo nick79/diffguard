@@ -131,7 +131,7 @@ def _node_text(node: Node) -> str:
     return str(node.text, "utf-8")
 
 
-def extract_imports(tree: Tree) -> list[Import]:
+def extract_python_imports(tree: Tree) -> list[Import]:
     """Extract all import statements from a parsed Python AST."""
     imports: list[Import] = []
     for child in tree.root_node.children:
@@ -260,7 +260,7 @@ _DEFINITION_PARENT_TYPES: frozenset[str] = frozenset(
 )
 
 
-def find_used_symbols(
+def find_python_used_symbols(
     tree: Tree,
     start_line: int,
     end_line: int,
@@ -362,7 +362,7 @@ _DEFAULT_THIRD_PARTY_PATTERNS: list[str] = [
 ]
 
 
-def is_first_party(
+def is_python_first_party(
     module_or_path: str,
     project_root: Path,
     third_party_patterns: list[str] | None = None,
@@ -414,7 +414,7 @@ def _path_passes_third_party_check(path_str: str, patterns: list[str]) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def resolve_symbol_definition(
+def resolve_python_symbol_definition(
     symbol: str,
     imports: list[Import],
     project_root: Path,

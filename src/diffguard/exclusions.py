@@ -1,4 +1,4 @@
-"""Sensitive file exclusion for preventing secrets from being sent to LLM."""
+"""Sensitive file exclusion and generated file detection."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from diffguard.config import DiffguardConfig
 
 if TYPE_CHECKING:
+    from diffguard.ast.languages import Language
     from diffguard.git import DiffFile
 
 # Comprehensive default patterns from PRD section 3.6.1.
@@ -209,3 +210,26 @@ def _find_matching_pattern(file_path: str, patterns: list[str]) -> str | None:
         if _matches_pattern(file_path, pattern):
             return pattern
     return None
+
+
+# ---------------------------------------------------------------------------
+# Generated file detection
+# ---------------------------------------------------------------------------
+
+
+def is_generated_file(file_path: str, source_lines: list[str], language: Language) -> bool:
+    """Check if a file is machine-generated or auto-created.
+
+    Each language task fills in its own detection logic. Currently returns
+    False for all languages (skeleton implementation).
+
+    Args:
+        file_path: The file path to check (relative or absolute).
+        source_lines: Lines of the file content (may be empty if not yet read).
+        language: The detected programming language.
+
+    Returns:
+        True if the file is detected as generated/auto-created.
+    """
+    _ = file_path, source_lines, language
+    return False

@@ -72,7 +72,7 @@ class DiffguardConfig(BaseModel):
     )
     third_party_patterns: list[str] = Field(
         default_factory=lambda: ["venv/", ".venv/", "site-packages/", "node_modules/"],
-        description="Patterns identifying third-party code paths",
+        description="Patterns identifying third-party code paths (excluded from analysis and symbol resolution)",
     )
 
     # Sensitive file exclusion
