@@ -266,11 +266,11 @@ baseline_path = "custom/path/baseline.json"
 
 ## Supported Languages
 
-Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to build precise context around code changes. The following languages are supported for scope detection and symbol resolution:
+Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to build precise context around code changes. Full language support includes scope detection, import extraction, symbol resolution, and first-party/third-party code classification.
 
-| Language | Extensions | Status |
-|----------|-----------|--------|
-| Python | `.py`, `.pyi` | Supported |
+| Language | Extensions | AST Support |
+|----------|-----------|-------------|
+| Python | `.py`, `.pyi` | Full |
 | JavaScript | `.js`, `.mjs`, `.cjs`, `.jsx` | Planned |
 | TypeScript | `.ts`, `.mts`, `.cts`, `.tsx` | Planned |
 | Java | `.java` | Planned |
@@ -279,6 +279,29 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | PHP | `.php` | Planned |
 
 Files with unsupported or unrecognized extensions are still included in the diff analysis — they just skip AST-based context enrichment and use raw hunk expansion instead.
+
+### Python
+
+**Scope detection:** Functions, async functions, classes, methods, nested definitions. Decorators are included in scope boundaries. Lambdas and comprehensions are not treated as scopes.
+
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, diffguard resolves the import to its source file and includes the symbol's definition in the LLM context. This gives the LLM visibility into helper functions, base classes, and utilities that the changed code depends on.
+
+**First-party detection:** Only first-party (project-local) symbols are resolved — third-party and stdlib code is excluded:
+- Relative imports (`from .module import X`) are always first-party
+- Standard library modules (`os`, `json`, `pathlib`, etc.) are excluded
+- Modules whose resolved file path matches a `third_party_patterns` entry are excluded
+
+**Third-party code patterns:** The `third_party_patterns` config controls which paths are considered third-party for symbol resolution. Default patterns for Python:
+- `venv/` — standard virtual environment
+- `.venv/` — common virtual environment alternative
+- `site-packages/` — installed packages
+
+These patterns are matched against the resolved file path. If a symbol's definition lives under one of these directories, it is not included in the LLM context.
+
+**Module resolution:** Diffguard resolves Python imports to file paths using standard conventions:
+- `module.py` — single-file modules
+- `module/__init__.py` — package modules
+- `src/module.py` and `src/module/__init__.py` — src layout projects
 
 ## Development
 
