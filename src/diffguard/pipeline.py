@@ -143,7 +143,7 @@ def prepare_file_contexts(
         PreparedContext with file contexts, code contexts, and any build errors.
     """
     root = project_root or Path.cwd()
-    analyzable = _filter_analyzable_files(diff_files, config)
+    analyzable = _filter_analyzable_files(diff_files, config, project_root=root)
 
     if not analyzable:
         return PreparedContext()
@@ -216,9 +216,21 @@ def _is_vendor_path(file_path: str, patterns: list[str]) -> bool:
     return any(pattern in file_path for pattern in patterns)
 
 
+def _read_head(project_root: Path | None, rel_path: str, max_lines: int = 20) -> list[str]:
+    """Read the first *max_lines* of a file, returning [] on any failure."""
+    if project_root is None:
+        return []
+    try:
+        return read_file_lines(project_root / rel_path)[:max_lines]
+    except (ContextError, OSError):
+        return []
+
+
 def _filter_analyzable_files(
     diff_files: list[DiffFile],
     config: DiffguardConfig,
+    *,
+    project_root: Path | None = None,
 ) -> list[tuple[DiffFile, Language]]:
     """Filter diff files to only those that can be analyzed.
 
@@ -261,7 +273,8 @@ def _filter_analyzable_files(
     # Filter generated/minified files
     non_generated: list[tuple[DiffFile, Language]] = []
     for df, lang in non_vendor:
-        if is_generated_file(df.path, [], lang):
+        head = _read_head(project_root, df.path)
+        if is_generated_file(df.path, head, lang):
             logger.debug("Skipping generated file: %s", df.path)
             continue
         non_generated.append((df, lang))

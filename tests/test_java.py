@@ -516,6 +516,18 @@ class TestJavaGeneratedFileDetection:
     def test_generated_path_segment(self) -> None:
         assert is_generated_file("some/generated/path/File.java", [], Language.JAVA) is True
 
+    def test_filter_analyzable_skips_generated_annotation_file(self, tmp_path: Path) -> None:
+        """A new Java file with @Generated in a normal path should be filtered out by the pipeline."""
+        java_dir = tmp_path / "src" / "main" / "java" / "com" / "example" / "model"
+        java_dir.mkdir(parents=True)
+        (java_dir / "GeneratedDto.java").write_text(JAVA_GENERATED)
+
+        rel_path = "src/main/java/com/example/model/GeneratedDto.java"
+        diff_files = [_make_diff_file(rel_path)]
+        config = DiffguardConfig()
+        result = _filter_analyzable_files(diff_files, config, project_root=tmp_path)
+        assert len(result) == 0
+
 
 # ---------------------------------------------------------------------------
 # Parsing Features
