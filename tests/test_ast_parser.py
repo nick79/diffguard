@@ -213,7 +213,14 @@ class TestGetParser:
         parser2 = get_parser(Language.PYTHON)
         assert parser1 is parser2
 
+    def test_returns_parser_for_javascript(self) -> None:
+        """get_parser returns a working Parser for JavaScript."""
+        parser = get_parser(Language.JAVASCRIPT)
+        tree = parser.parse(b"const x = 1;")
+        assert tree is not None
+        assert tree.root_node.type == "program"
+
     def test_unsupported_language_raises(self) -> None:
         """Requesting a parser for an uninstalled grammar raises UnsupportedLanguageError."""
-        with pytest.raises(UnsupportedLanguageError, match="javascript"):
-            get_parser(Language.JAVASCRIPT)
+        with pytest.raises(UnsupportedLanguageError, match="go"):
+            get_parser(Language.GO)

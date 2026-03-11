@@ -14,7 +14,7 @@
 # symbol_resolution_depth = 1
 
 # Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
-# third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]
+# third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/"]
 
 # LLM sampling temperature (0 = deterministic, higher = more creative)
 # temperature = 0.0

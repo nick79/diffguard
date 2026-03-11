@@ -347,7 +347,7 @@ class TestFindEnclosingScopeEdgeCases:
 
     def test_unsupported_language_returns_none(self) -> None:
         tree = _parse(SIMPLE_FUNCTION)
-        assert find_enclosing_scope(tree, 4, Language.JAVASCRIPT) is None
+        assert find_enclosing_scope(tree, 4, Language.GO) is None
 
     def test_decorator_line_returns_function_scope(self) -> None:
         tree = _parse(DECORATED_SINGLE)

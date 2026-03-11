@@ -218,7 +218,7 @@ class TestExtractImports:
 
     def test_unsupported_language_returns_empty(self) -> None:
         tree = _parse(SIMPLE_IMPORT)
-        imports = extract_imports(tree, Language.JAVASCRIPT)
+        imports = extract_imports(tree, Language.GO)
         assert imports == []
 
 
@@ -278,7 +278,7 @@ class TestFindUsedSymbols:
 
     def test_unsupported_language_returns_empty_set(self) -> None:
         tree = _parse(CODE_WITH_SYMBOLS)
-        symbols = find_used_symbols(tree, 1, 4, Language.JAVASCRIPT)
+        symbols = find_used_symbols(tree, 1, 4, Language.GO)
         assert symbols == set()
 
 
@@ -315,7 +315,7 @@ class TestIsFirstParty:
         assert is_first_party("requests", fake_project, None, Language.PYTHON) is False
 
     def test_unsupported_language_returns_false(self) -> None:
-        assert is_first_party("os", Path("/project"), None, Language.JAVASCRIPT) is False
+        assert is_first_party("os", Path("/project"), None, Language.GO) is False
 
 
 # ---------------------------------------------------------------------------
@@ -378,5 +378,5 @@ class TestResolveSymbolDefinition:
 
     def test_unsupported_language_returns_none(self, fake_project: Path) -> None:
         imports = [Import(module="src.utils", names=["helper"])]
-        result = resolve_symbol_definition("helper", imports, fake_project, None, Language.JAVASCRIPT)
+        result = resolve_symbol_definition("helper", imports, fake_project, None, Language.GO)
         assert result is None

@@ -123,7 +123,7 @@ max_concurrent_api_calls = 5  # default
 timeout = 120  # default
 
 # Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
-third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/"]  # default
+third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/"]  # default
 
 # Path to baseline file (relative to project root)
 baseline_path = ".diffguard-baseline.json"  # default
@@ -271,7 +271,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | Language | Extensions | AST Support |
 |----------|-----------|-------------|
 | Python | `.py`, `.pyi` | Full |
-| JavaScript | `.js`, `.mjs`, `.cjs`, `.jsx` | Planned |
+| JavaScript | `.js`, `.mjs`, `.cjs`, `.jsx` | Full |
 | TypeScript | `.ts`, `.mts`, `.cts`, `.tsx` | Planned |
 | Java | `.java` | Planned |
 | Ruby | `.rb` | Planned |
@@ -302,6 +302,30 @@ These patterns are matched against file paths. Staged files under these director
 - `module.py` — single-file modules
 - `module/__init__.py` — package modules
 - `src/module.py` and `src/module/__init__.py` — src layout projects
+
+### JavaScript
+
+**Scope detection:** Functions, arrow functions, function expressions, generator functions, async functions, classes, and methods. Arrow functions and function expressions assigned to variables inherit the variable name. Anonymous callbacks get `<anonymous>`.
+
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, diffguard resolves the import to its source file. Both ES6 imports (`import { x } from './utils'`) and CommonJS (`const x = require('./utils')`) are supported. Dynamic `import()` expressions are also detected.
+
+**First-party detection:** Only first-party (project-local) symbols are resolved — third-party packages are excluded:
+- Relative imports (`./utils`, `../lib`) are always first-party
+- Bare specifiers matching the `name` field or `workspaces` entries in `package.json` are first-party
+- All other bare specifiers (e.g., `lodash`, `express`) are treated as third-party
+
+**Third-party code patterns:** Default patterns for JavaScript:
+- `node_modules/` — npm/yarn installed packages
+- `bower_components/` — Bower installed packages
+
+**Generated file detection:** Minified and bundled JavaScript files are automatically excluded from analysis:
+- Filename patterns: `.min.js`, `.min.mjs`, `.min.cjs`, `.bundle.js`, `.chunk.js`
+- Content heuristic: files with average line length > 500 characters
+
+**Module resolution:** Diffguard resolves JavaScript imports using standard Node.js conventions:
+- `./module.js` — exact file path
+- `./module` — tries `.js`, `.mjs`, `.cjs`, `.jsx` extensions
+- `./lib` — tries `index.js` in directory (index convention)
 
 ## Development
 

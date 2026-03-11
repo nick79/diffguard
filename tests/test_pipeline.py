@@ -651,19 +651,32 @@ class TestVendorPathFiltering:
 
 
 class TestGeneratedFileDetection:
-    """Generated file detection skeleton returns False for all languages."""
+    """Generated file detection returns False for non-JS and detects minified JS."""
 
-    def test_skeleton_returns_false_for_python(self) -> None:
+    def test_returns_false_for_python(self) -> None:
         assert is_generated_file("src/app.py", ["import os"], Language.PYTHON) is False
 
-    def test_skeleton_returns_false_for_javascript(self) -> None:
-        assert is_generated_file("dist/app.js", [], Language.JAVASCRIPT) is False
+    def test_returns_false_for_normal_javascript(self) -> None:
+        assert is_generated_file("src/app.js", ["const x = 1;"], Language.JAVASCRIPT) is False
 
-    def test_skeleton_returns_false_for_all_languages(self) -> None:
-        for lang in Language:
+    def test_detects_minified_javascript(self) -> None:
+        assert is_generated_file("dist/app.min.js", [], Language.JAVASCRIPT) is True
+
+    def test_detects_bundled_javascript(self) -> None:
+        assert is_generated_file("dist/main.bundle.js", [], Language.JAVASCRIPT) is True
+
+    def test_detects_chunk_javascript(self) -> None:
+        assert is_generated_file("dist/vendor.chunk.js", [], Language.JAVASCRIPT) is True
+
+    def test_detects_minified_content_heuristic(self) -> None:
+        long_line = "a" * 600
+        assert is_generated_file("dist/app.js", [long_line], Language.JAVASCRIPT) is True
+
+    def test_returns_false_for_non_js_languages(self) -> None:
+        for lang in (Language.PYTHON, Language.TYPESCRIPT, Language.JAVA, Language.RUBY, Language.GO, Language.PHP):
             assert is_generated_file("some/file.txt", [], lang) is False
 
-    def test_generated_file_step_in_pipeline_does_not_skip(self) -> None:
+    def test_generated_file_step_in_pipeline_does_not_skip_normal(self) -> None:
         diff_files = [_make_diff_file("src/app.py")]
         result = _filter_analyzable_files(diff_files, _default_config())
         assert len(result) == 1

@@ -43,6 +43,10 @@ def find_enclosing_scope(tree: Tree, line: int, language: Language) -> Scope | N
             from diffguard.ast.python import find_python_scope  # noqa: PLC0415
 
             return find_python_scope(tree, line)
+        case Language.JAVASCRIPT:
+            from diffguard.ast.javascript import find_javascript_scope  # noqa: PLC0415
+
+            return find_javascript_scope(tree, line)
         case _:
             return None
 

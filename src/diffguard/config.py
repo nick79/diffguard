@@ -71,7 +71,7 @@ class DiffguardConfig(BaseModel):
         default=1, ge=0, description="How deep to follow imports for symbol resolution"
     )
     third_party_patterns: list[str] = Field(
-        default_factory=lambda: ["venv/", ".venv/", "site-packages/", "node_modules/"],
+        default_factory=lambda: ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/"],
         description="Patterns identifying third-party code paths (excluded from analysis and symbol resolution)",
     )
 

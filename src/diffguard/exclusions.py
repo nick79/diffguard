@@ -6,10 +6,10 @@ import fnmatch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from diffguard.ast.languages import Language
 from diffguard.config import DiffguardConfig
 
 if TYPE_CHECKING:
-    from diffguard.ast.languages import Language
     from diffguard.git import DiffFile
 
 # Comprehensive default patterns from PRD section 3.6.1.
@@ -220,9 +220,6 @@ def _find_matching_pattern(file_path: str, patterns: list[str]) -> str | None:
 def is_generated_file(file_path: str, source_lines: list[str], language: Language) -> bool:
     """Check if a file is machine-generated or auto-created.
 
-    Each language task fills in its own detection logic. Currently returns
-    False for all languages (skeleton implementation).
-
     Args:
         file_path: The file path to check (relative or absolute).
         source_lines: Lines of the file content (may be empty if not yet read).
@@ -231,5 +228,33 @@ def is_generated_file(file_path: str, source_lines: list[str], language: Languag
     Returns:
         True if the file is detected as generated/auto-created.
     """
-    _ = file_path, source_lines, language
+    match language:
+        case Language.JAVASCRIPT:
+            return _is_generated_javascript(file_path, source_lines)
+        case _:
+            return False
+
+
+_MINIFIED_JS_SUFFIXES: tuple[str, ...] = (
+    ".min.js",
+    ".min.mjs",
+    ".min.cjs",
+    ".bundle.js",
+    ".chunk.js",
+)
+
+
+def _is_generated_javascript(file_path: str, source_lines: list[str]) -> bool:
+    """Check if a JavaScript file is minified or bundled."""
+    path_lower = file_path.lower()
+    if any(path_lower.endswith(suffix) for suffix in _MINIFIED_JS_SUFFIXES):
+        return True
+
+    # Content heuristic: avg line length > 500 chars indicates minified code
+    if source_lines:
+        total_chars = sum(len(line) for line in source_lines)
+        avg_length = total_chars / len(source_lines)
+        if avg_length > 500:
+            return True
+
     return False

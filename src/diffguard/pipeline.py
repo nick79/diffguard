@@ -65,6 +65,11 @@ _SYMBOL_NODE_CONFIGS: dict[Language, tuple[frozenset[str], str | None, str]] = {
         "decorated_definition",
         "name",
     ),
+    Language.JAVASCRIPT: (
+        frozenset({"function_declaration", "generator_function_declaration", "class_declaration", "method_definition"}),
+        None,
+        "name",
+    ),
 }
 
 
