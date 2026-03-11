@@ -46,6 +46,10 @@ def extract_imports(tree: Tree, language: Language) -> list[Import]:
             from diffguard.ast.javascript import extract_javascript_imports  # noqa: PLC0415
 
             return extract_javascript_imports(tree)
+        case Language.TYPESCRIPT:
+            from diffguard.ast.typescript import extract_typescript_imports  # noqa: PLC0415
+
+            return extract_typescript_imports(tree)
         case _:
             return []
 
@@ -72,6 +76,10 @@ def find_used_symbols(
             from diffguard.ast.javascript import find_javascript_used_symbols  # noqa: PLC0415
 
             return find_javascript_used_symbols(tree, start_line, end_line, exclude_builtins=exclude_builtins)
+        case Language.TYPESCRIPT:
+            from diffguard.ast.typescript import find_typescript_used_symbols  # noqa: PLC0415
+
+            return find_typescript_used_symbols(tree, start_line, end_line, exclude_builtins=exclude_builtins)
         case _:
             return set()
 
@@ -98,6 +106,10 @@ def is_first_party(
             from diffguard.ast.javascript import is_first_party_js  # noqa: PLC0415
 
             return is_first_party_js(module_or_path, project_root, third_party_patterns, is_relative=is_relative)
+        case Language.TYPESCRIPT:
+            from diffguard.ast.typescript import is_first_party_ts  # noqa: PLC0415
+
+            return is_first_party_ts(module_or_path, project_root, third_party_patterns, is_relative=is_relative)
         case _:
             return False
 
@@ -123,5 +135,9 @@ def resolve_symbol_definition(
             from diffguard.ast.javascript import resolve_javascript_symbol  # noqa: PLC0415
 
             return resolve_javascript_symbol(symbol, imports, project_root, current_file)
+        case Language.TYPESCRIPT:
+            from diffguard.ast.typescript import resolve_typescript_symbol  # noqa: PLC0415
+
+            return resolve_typescript_symbol(symbol, imports, project_root, current_file)
         case _:
             return None
