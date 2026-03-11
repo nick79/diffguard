@@ -32,6 +32,10 @@ def _load_language(language: Language) -> TSLanguage:
 
             # Use TSX grammar — handles both .ts and .tsx files
             return TSLanguage(tree_sitter_typescript.language_tsx())
+        case Language.JAVA:
+            import tree_sitter_java  # noqa: PLC0415
+
+            return TSLanguage(tree_sitter_java.language())
         case _:
             raise UnsupportedLanguageError(f"No tree-sitter grammar installed for {language.value}")
 

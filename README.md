@@ -123,7 +123,7 @@ max_concurrent_api_calls = 5  # default
 timeout = 120  # default
 
 # Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
-third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/"]  # default
+third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/", "target/", "build/", ".gradle/"]  # default
 
 # Path to baseline file (relative to project root)
 baseline_path = ".diffguard-baseline.json"  # default
@@ -273,7 +273,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | Python | `.py`, `.pyi` | Full |
 | JavaScript | `.js`, `.mjs`, `.cjs`, `.jsx` | Full |
 | TypeScript | `.ts`, `.mts`, `.cts`, `.tsx` | Full |
-| Java | `.java` | Planned |
+| Java | `.java` | Full |
 | Ruby | `.rb` | Planned |
 | Go | `.go` | Planned |
 | PHP | `.php` | Planned |
@@ -351,6 +351,31 @@ These patterns are matched against file paths. Staged files under these director
 - `./module.ts` — exact file path
 - `./module` — tries `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`, `.jsx` extensions
 - `./lib` — tries `index.ts`/`index.tsx`/etc. in directory (index convention)
+
+### Java
+
+**Scope detection:** Classes, interfaces, enums, methods, constructors, static methods, inner classes, and lambdas. Annotations (e.g., `@Override`, `@Service`) are included in scope boundaries as part of the method/class declaration.
+
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party package, diffguard resolves the import to its source file. Both regular imports (`import com.example.Helper;`) and static imports (`import static com.example.Utils.format;`) are supported. Wildcard imports (`import com.example.*;`) are also detected.
+
+**First-party detection:** Only first-party (project-local) symbols are resolved — standard library and third-party code is excluded:
+- Standard library packages (`java.*`, `javax.*`, `jdk.*`, `com.sun.*`) are excluded
+- Project base package is detected from `pom.xml` (`<groupId>`), `build.gradle`/`build.gradle.kts` (`group`), or inferred from `src/main/java/` directory structure
+- Imports matching the project base package are first-party
+- Imports resolvable to files under `src/main/java/` or `src/test/java/` are first-party
+
+**Third-party/build output paths:** Default patterns for Java:
+- `target/` — Maven build output
+- `build/` — Gradle build output
+- `.gradle/` — Gradle cache directory
+
+**Generated file detection:** Generated Java files are automatically excluded from analysis:
+- Path patterns: `**/generated-sources/**`, `**/generated/**`, `**/apt_generated/**` (annotation processor output)
+- Content heuristic: files with `@Generated` annotation in the first 20 lines
+
+**Module resolution:** Diffguard resolves Java imports using standard Maven/Gradle conventions:
+- `com.example.MyClass` → `src/main/java/com/example/MyClass.java`
+- Also tries `src/test/java/` and `src/` layouts
 
 ## Development
 

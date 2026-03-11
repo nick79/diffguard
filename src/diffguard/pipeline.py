@@ -75,6 +75,11 @@ _SYMBOL_NODE_CONFIGS: dict[Language, tuple[frozenset[str], str | None, str]] = {
         None,
         "name",
     ),
+    Language.JAVA: (
+        frozenset({"class_declaration", "interface_declaration", "enum_declaration", "method_declaration"}),
+        None,
+        "name",
+    ),
 }
 
 

@@ -233,6 +233,8 @@ def is_generated_file(file_path: str, source_lines: list[str], language: Languag
             return _is_generated_javascript(file_path, source_lines)
         case Language.TYPESCRIPT:
             return _is_generated_typescript(file_path, source_lines)
+        case Language.JAVA:
+            return _is_generated_java(file_path, source_lines)
         case _:
             return False
 
@@ -271,6 +273,29 @@ def _is_generated_typescript(file_path: str, source_lines: list[str]) -> bool:
         total_chars = sum(len(line) for line in source_lines)
         avg_length = total_chars / len(source_lines)
         if avg_length > 500:
+            return True
+
+    return False
+
+
+_JAVA_GENERATED_PATH_SEGMENTS: tuple[str, ...] = (
+    "generated-sources/",
+    "generated/",
+    "apt_generated/",
+)
+
+
+def _is_generated_java(file_path: str, source_lines: list[str]) -> bool:
+    """Check if a Java file is generated."""
+    # Path-based: generated-sources, apt_generated, etc.
+    path_lower = file_path.lower()
+    if any(segment in path_lower for segment in _JAVA_GENERATED_PATH_SEGMENTS):
+        return True
+
+    # Content-based: @Generated annotation in first 20 lines
+    for line in source_lines[:20]:
+        stripped = line.strip()
+        if stripped.startswith("@Generated") or stripped.startswith("@javax.annotation.Generated"):
             return True
 
     return False
