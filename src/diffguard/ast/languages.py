@@ -14,6 +14,7 @@ class Language(enum.Enum):
     RUBY = "ruby"
     GO = "go"
     PHP = "php"
+    MAKEFILE = "makefile"
 
 
 _EXTENSION_MAP: dict[str, Language] = {
@@ -31,14 +32,25 @@ _EXTENSION_MAP: dict[str, Language] = {
     ".rb": Language.RUBY,
     ".go": Language.GO,
     ".php": Language.PHP,
+    ".mk": Language.MAKEFILE,
+}
+
+_FILENAME_MAP: dict[str, Language] = {
+    "Makefile": Language.MAKEFILE,
+    "makefile": Language.MAKEFILE,
+    "GNUmakefile": Language.MAKEFILE,
 }
 
 
 def detect_language(file_path: str) -> Language | None:
-    """Detect the programming language of a file from its extension.
+    """Detect the programming language of a file from its extension or filename.
 
-    Returns None for unrecognized or missing extensions.
+    Returns None for unrecognized or missing extensions/filenames.
     Handles case-insensitive extensions, hidden files, and double extensions.
+    Falls back to filename-based detection for extensionless files (e.g. Makefile).
     """
-    suffix = PurePosixPath(file_path).suffix.lower()
-    return _EXTENSION_MAP.get(suffix)
+    path = PurePosixPath(file_path)
+    suffix = path.suffix.lower()
+    if suffix:
+        return _EXTENSION_MAP.get(suffix)
+    return _FILENAME_MAP.get(path.name)

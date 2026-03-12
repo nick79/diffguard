@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -237,6 +238,8 @@ def is_generated_file(file_path: str, source_lines: list[str], language: Languag
             return _is_generated_java(file_path, source_lines)
         case Language.RUBY:
             return _is_generated_ruby(file_path, source_lines)
+        case Language.GO:
+            return _is_generated_go(file_path, source_lines)
         case _:
             return False
 
@@ -324,6 +327,40 @@ def _is_generated_ruby(file_path: str, source_lines: list[str]) -> bool:
         stripped = line.strip()
         if any(stripped.startswith(marker) for marker in _RUBY_GENERATED_MARKERS):
             return True
+
+    return False
+
+
+_GO_GENERATED_NAME_PATTERNS: tuple[str, ...] = (
+    ".pb.go",
+    "_string.go",
+    "_gen.go",
+)
+
+_GO_GENERATED_HEADER = re.compile(r"^// Code generated .+ DO NOT EDIT\.$")
+
+
+def _is_generated_go(file_path: str, source_lines: list[str]) -> bool:
+    """Check if a Go file is generated."""
+    basename = file_path.rsplit("/", 1)[-1]
+
+    # Filename patterns
+    if any(basename.endswith(suffix) for suffix in _GO_GENERATED_NAME_PATTERNS):
+        return True
+    if basename.startswith("mock_") and basename.endswith(".go"):
+        return True
+    if basename.endswith("_mock.go"):
+        return True
+
+    # Content: `// Code generated ... DO NOT EDIT.` convention
+    # The header appears as the first content line (may be preceded by build tags or blank lines)
+    for line in source_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//go:build") or stripped.startswith("// +build"):
+            continue
+        if _GO_GENERATED_HEADER.match(stripped):
+            return True
+        break
 
     return False
 

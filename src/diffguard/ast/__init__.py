@@ -31,7 +31,7 @@ __all__ = [
 ]
 
 
-def extract_imports(tree: Tree, language: Language) -> list[Import]:
+def extract_imports(tree: Tree, language: Language) -> list[Import]:  # noqa: PLR0911
     """Extract import statements from a parsed AST.
 
     Dispatches to the language-specific implementation. Returns an empty
@@ -58,11 +58,15 @@ def extract_imports(tree: Tree, language: Language) -> list[Import]:
             from diffguard.ast.ruby import extract_ruby_imports  # noqa: PLC0415
 
             return extract_ruby_imports(tree)
+        case Language.GO:
+            from diffguard.ast.go import extract_go_imports  # noqa: PLC0415
+
+            return extract_go_imports(tree)
         case _:
             return []
 
 
-def find_used_symbols(
+def find_used_symbols(  # noqa: PLR0911
     tree: Tree,
     start_line: int,
     end_line: int,
@@ -96,11 +100,15 @@ def find_used_symbols(
             from diffguard.ast.ruby import find_ruby_used_symbols  # noqa: PLC0415
 
             return find_ruby_used_symbols(tree, start_line, end_line, exclude_builtins=exclude_builtins)
+        case Language.GO:
+            from diffguard.ast.go import find_go_used_symbols  # noqa: PLC0415
+
+            return find_go_used_symbols(tree, start_line, end_line, exclude_builtins=exclude_builtins)
         case _:
             return set()
 
 
-def is_first_party(
+def is_first_party(  # noqa: PLR0911
     module_or_path: str,
     project_root: Path,
     third_party_patterns: list[str] | None,
@@ -134,11 +142,15 @@ def is_first_party(
             from diffguard.ast.ruby import is_first_party_ruby  # noqa: PLC0415
 
             return is_first_party_ruby(module_or_path, project_root, third_party_patterns, is_relative=is_relative)
+        case Language.GO:
+            from diffguard.ast.go import is_first_party_go  # noqa: PLC0415
+
+            return is_first_party_go(module_or_path, project_root, third_party_patterns, is_relative=is_relative)
         case _:
             return False
 
 
-def resolve_symbol_definition(
+def resolve_symbol_definition(  # noqa: PLR0911
     symbol: str,
     imports: list[Import],
     project_root: Path,
@@ -171,5 +183,9 @@ def resolve_symbol_definition(
             from diffguard.ast.ruby import resolve_ruby_symbol  # noqa: PLC0415
 
             return resolve_ruby_symbol(symbol, imports, project_root, current_file)
+        case Language.GO:
+            from diffguard.ast.go import resolve_go_symbol  # noqa: PLC0415
+
+            return resolve_go_symbol(symbol, imports, project_root, current_file)
         case _:
             return None

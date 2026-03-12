@@ -275,8 +275,9 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | TypeScript | `.ts`, `.mts`, `.cts`, `.tsx` | Full |
 | Java | `.java` | Full |
 | Ruby | `.rb` | Full |
-| Go | `.go` | Planned |
+| Go | `.go` | Full |
 | PHP | `.php` | Planned |
+| Makefile | `Makefile`, `makefile`, `GNUmakefile`, `.mk` | Analysis-only |
 
 Files with unsupported or unrecognized extensions are still included in the diff analysis — they just skip AST-based context enrichment and use raw hunk expansion instead.
 
@@ -416,6 +417,32 @@ Additional excluded paths for Rails projects: `tmp/cache/`, `log/`
 Additional generated file detection: `db/migrate/*.rb` files with `# This migration was auto-generated` header
 
 **Sinatra / Padrino:** Fully supported via base Ruby support — route blocks are captured as block scopes, and explicit `require` statements are handled by the standard Ruby import extraction.
+
+### Go
+
+**Scope detection:** Functions, methods (value and pointer receivers), anonymous functions (goroutines), and init functions. Go does not have classes — struct types are defined at package level and are not treated as scopes.
+
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party package, diffguard resolves the import to its source file. Both single imports (`import "fmt"`) and grouped imports (`import (...)`) are supported, including aliased imports (`import f "fmt"`), blank/side-effect imports (`import _ "database/sql"`), and dot imports (`import . "strings"`).
+
+**First-party detection:** Only first-party (project-local) symbols are resolved — standard library and third-party code is excluded:
+- Standard library packages (no dots in import path: `fmt`, `net/http`, `crypto/tls`) are excluded
+- The module path is read from `go.mod` (e.g., `module github.com/myorg/myapp`)
+- Imports prefixed with the module path are first-party
+- All other imports (with dots but not matching module path) are third-party
+
+**Third-party/vendor paths:** Default patterns for Go:
+- `vendor/` — Go modules vendor directory
+
+**Generated file detection:** Generated Go files are automatically excluded from analysis:
+- `// Code generated ... DO NOT EDIT.` convention (the standard `go generate` header, as first content line after optional build tags)
+- Filename patterns: `*.pb.go` (protobuf), `*_string.go` (stringer), `mock_*.go`/`*_mock.go` (mock generators), `*_gen.go` (general generated suffix)
+
+**Module resolution:** Diffguard resolves Go imports using `go.mod` module path:
+- `github.com/myorg/myapp/internal/utils` → `internal/utils/*.go` (first non-test `.go` file in the package directory)
+
+### Makefile
+
+**Analysis-only support.** Makefiles are detected by filename (`Makefile`, `makefile`, `GNUmakefile`) or extension (`.mk`) and included in diff analysis with raw hunk expansion. No AST-based scope detection, import extraction, or symbol resolution is performed — the LLM analyzes the raw code context directly.
 
 ## Development
 

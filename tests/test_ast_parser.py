@@ -153,9 +153,9 @@ class TestDetectLanguage:
         assert detect_language("image.png") is None
 
     def test_no_extension_returns_none(self) -> None:
-        """File with no extension returns None."""
-        assert detect_language("Makefile") is None
+        """File with no extension returns None (unless it matches filename map)."""
         assert detect_language("Dockerfile") is None
+        assert detect_language("LICENSE") is None
 
     def test_hidden_file_with_extension(self) -> None:
         """Hidden file with known extension is detected."""
@@ -222,5 +222,5 @@ class TestGetParser:
 
     def test_unsupported_language_raises(self) -> None:
         """Requesting a parser for an uninstalled grammar raises UnsupportedLanguageError."""
-        with pytest.raises(UnsupportedLanguageError, match="go"):
-            get_parser(Language.GO)
+        with pytest.raises(UnsupportedLanguageError, match="php"):
+            get_parser(Language.PHP)

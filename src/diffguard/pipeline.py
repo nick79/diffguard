@@ -85,6 +85,11 @@ _SYMBOL_NODE_CONFIGS: dict[Language, tuple[frozenset[str], str | None, str]] = {
         None,
         "name",
     ),
+    Language.GO: (
+        frozenset({"function_declaration", "method_declaration"}),
+        None,
+        "name",
+    ),
 }
 
 

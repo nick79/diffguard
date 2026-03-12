@@ -59,6 +59,10 @@ def find_enclosing_scope(tree: Tree, line: int, language: Language) -> Scope | N
             from diffguard.ast.ruby import find_ruby_scope  # noqa: PLC0415
 
             return find_ruby_scope(tree, line)
+        case Language.GO:
+            from diffguard.ast.go import find_go_scope  # noqa: PLC0415
+
+            return find_go_scope(tree, line)
         case _:
             return None
 

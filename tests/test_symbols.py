@@ -278,7 +278,7 @@ class TestFindUsedSymbols:
 
     def test_unsupported_language_returns_empty_set(self) -> None:
         tree = _parse(CODE_WITH_SYMBOLS)
-        symbols = find_used_symbols(tree, 1, 4, Language.GO)
+        symbols = find_used_symbols(tree, 1, 4, Language.PHP)
         assert symbols == set()
 
 
