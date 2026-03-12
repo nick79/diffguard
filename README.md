@@ -123,7 +123,7 @@ max_concurrent_api_calls = 5  # default
 timeout = 120  # default
 
 # Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
-third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/", "target/", "build/", ".gradle/", "vendor/bundle/", "vendor/ruby/", ".bundle/"]  # default
+third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/", "target/", "build/", ".gradle/", "vendor/bundle/", "vendor/ruby/", ".bundle/", "tmp/cache/", "log/"]  # default
 
 # Path to baseline file (relative to project root)
 baseline_path = ".diffguard-baseline.json"  # default
@@ -401,6 +401,21 @@ These patterns are matched against file paths. Staged files under these director
 **Module resolution:** Diffguard resolves Ruby imports using standard conventions:
 - `require_relative './helper'` — relative to current file, tries `.rb` extension
 - `require 'my_app/helper'` — tries `lib/my_app/helper.rb`, `my_app/helper.rb`, `app/my_app/helper.rb`
+
+#### Ruby Framework Support
+
+**Rails:** Diffguard detects Rails projects (via `config/application.rb`) and adds Zeitwerk-style autoload resolution. When a changed region references a class with no explicit `require`, diffguard resolves it via Rails conventions:
+- `User` → `app/models/user.rb`
+- `UsersController` → `app/controllers/users_controller.rb`
+- `Admin::DashboardController` → `app/controllers/admin/dashboard_controller.rb`
+- `UserMailer` → `app/mailers/user_mailer.rb`
+- `UserJob` → `app/jobs/user_job.rb`
+
+Additional excluded paths for Rails projects: `tmp/cache/`, `log/`
+
+Additional generated file detection: `db/migrate/*.rb` files with `# This migration was auto-generated` header
+
+**Sinatra / Padrino:** Fully supported via base Ruby support — route blocks are captured as block scopes, and explicit `require` statements are handled by the standard Ruby import extraction.
 
 ## Development
 

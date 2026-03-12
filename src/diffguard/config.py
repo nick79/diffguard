@@ -83,6 +83,8 @@ class DiffguardConfig(BaseModel):
             "vendor/bundle/",
             "vendor/ruby/",
             ".bundle/",
+            "tmp/cache/",
+            "log/",
         ],
         description="Patterns identifying third-party code paths (excluded from analysis and symbol resolution)",
     )

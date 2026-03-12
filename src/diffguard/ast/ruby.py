@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from diffguard.ast.python import Import
@@ -120,6 +121,67 @@ def _strip_quotes(s: str) -> str:
     if len(s) >= 2 and s[0] in ("'", '"') and s[-1] == s[0]:
         return s[1:-1]
     return s
+
+
+# ---------------------------------------------------------------------------
+# Rails detection and autoload resolution
+# ---------------------------------------------------------------------------
+
+_rails_project_cache: dict[Path, bool] = {}
+
+
+def _class_to_snake(name: str) -> str:
+    """Convert CamelCase to snake_case (Rails underscore convention).
+
+    Handles :: namespaces by converting to path separators.
+    Examples: UsersController → users_controller, Admin::DashboardController → admin/dashboard_controller
+    """
+    name = name.replace("::", "/")
+    name = re.sub(r"([A-Z\d]+)([A-Z][a-z])", r"\1_\2", name)
+    name = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", name)
+    return name.lower()
+
+
+def _detect_rails_project(project_root: Path) -> bool:
+    """Check if the project root is a Rails project (has config/application.rb)."""
+    if project_root in _rails_project_cache:
+        return _rails_project_cache[project_root]
+    result = (project_root / "config" / "application.rb").is_file()
+    _rails_project_cache[project_root] = result
+    return result
+
+
+_RAILS_AUTOLOAD_DIRS: tuple[str, ...] = (
+    "app/models",
+    "app/controllers",
+    "app/mailers",
+    "app/jobs",
+    "app/helpers",
+    "app/services",
+    "app/channels",
+    "app/serializers",
+    "app/components",
+    "app/policies",
+    "app/decorators",
+    "app/validators",
+)
+
+
+def _resolve_rails_autoload(symbol: str, project_root: Path) -> Path | None:
+    """Resolve a symbol via Rails Zeitwerk autoload conventions."""
+    snake_path = _class_to_snake(symbol)
+
+    for dir_path in _RAILS_AUTOLOAD_DIRS:
+        candidate = project_root / dir_path / f"{snake_path}.rb"
+        if candidate.is_file():
+            return candidate
+
+    # Fallback: check app/ root directly
+    candidate = project_root / "app" / f"{snake_path}.rb"
+    if candidate.is_file():
+        return candidate
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -538,8 +600,9 @@ def _load_gemfile_gems(project_root: Path) -> set[str] | None:
 
 
 def clear_gemfile_cache() -> None:
-    """Clear the Gemfile cache (useful for testing)."""
+    """Clear the Gemfile and Rails project detection caches (useful for testing)."""
     _gemfile_cache.clear()
+    _rails_project_cache.clear()
 
 
 def is_first_party_ruby(
@@ -570,7 +633,14 @@ def is_first_party_ruby(
         return False
 
     # Check if a matching file exists locally
-    return _resolve_require_to_path(module_or_path, project_root) is not None
+    if _resolve_require_to_path(module_or_path, project_root) is not None:
+        return True
+
+    # Rails autoload fallback
+    return (
+        _detect_rails_project(project_root)
+        and _resolve_rails_autoload(_snake_to_class(module_or_path.rsplit("/", 1)[-1]), project_root) is not None
+    )
 
 
 def _resolve_require_to_path(module: str, project_root: Path) -> Path | None:
@@ -605,6 +675,9 @@ def resolve_ruby_symbol(
     """Resolve an imported symbol name to a file path in the project."""
     source_import = _find_import_for_symbol(symbol, imports)
     if source_import is None:
+        # Rails autoload fallback: resolve by convention when no import matches
+        if _detect_rails_project(project_root):
+            return _resolve_rails_autoload(symbol, project_root)
         return None
 
     if source_import.is_relative:
