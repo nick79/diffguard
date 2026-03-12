@@ -24,7 +24,7 @@ class Scope:
     end_line: int
 
 
-def find_enclosing_scope(tree: Tree, line: int, language: Language) -> Scope | None:
+def find_enclosing_scope(tree: Tree, line: int, language: Language) -> Scope | None:  # noqa: PLR0911
     """Find the innermost scope containing a 1-indexed line number.
 
     Args:
@@ -55,6 +55,10 @@ def find_enclosing_scope(tree: Tree, line: int, language: Language) -> Scope | N
             from diffguard.ast.java import find_java_scope  # noqa: PLC0415
 
             return find_java_scope(tree, line)
+        case Language.RUBY:
+            from diffguard.ast.ruby import find_ruby_scope  # noqa: PLC0415
+
+            return find_ruby_scope(tree, line)
         case _:
             return None
 

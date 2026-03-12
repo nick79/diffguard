@@ -80,6 +80,11 @@ _SYMBOL_NODE_CONFIGS: dict[Language, tuple[frozenset[str], str | None, str]] = {
         None,
         "name",
     ),
+    Language.RUBY: (
+        frozenset({"method", "singleton_method", "class", "module"}),
+        None,
+        "name",
+    ),
 }
 
 

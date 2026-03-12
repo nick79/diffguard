@@ -36,6 +36,10 @@ def _load_language(language: Language) -> TSLanguage:
             import tree_sitter_java  # noqa: PLC0415
 
             return TSLanguage(tree_sitter_java.language())
+        case Language.RUBY:
+            import tree_sitter_ruby  # noqa: PLC0415
+
+            return TSLanguage(tree_sitter_ruby.language())
         case _:
             raise UnsupportedLanguageError(f"No tree-sitter grammar installed for {language.value}")
 

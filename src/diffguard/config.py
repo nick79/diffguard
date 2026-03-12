@@ -80,6 +80,9 @@ class DiffguardConfig(BaseModel):
             "target/",
             "build/",
             ".gradle/",
+            "vendor/bundle/",
+            "vendor/ruby/",
+            ".bundle/",
         ],
         description="Patterns identifying third-party code paths (excluded from analysis and symbol resolution)",
     )
