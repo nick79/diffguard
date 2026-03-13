@@ -222,5 +222,5 @@ class TestGetParser:
 
     def test_unsupported_language_raises(self) -> None:
         """Requesting a parser for an uninstalled grammar raises UnsupportedLanguageError."""
-        with pytest.raises(UnsupportedLanguageError, match="php"):
-            get_parser(Language.PHP)
+        with pytest.raises(UnsupportedLanguageError, match="makefile"):
+            get_parser(Language.MAKEFILE)

@@ -13,6 +13,7 @@ dependencies = [
     "tree-sitter-go>=0.25.0",
     "tree-sitter-java>=0.23.0",
     "tree-sitter-javascript>=0.23.0",
+    "tree-sitter-php>=0.23.0",
     "tree-sitter-python>=0.23.0",
     "tree-sitter-ruby>=0.23.1",
     "tree-sitter-typescript>=0.23.0",
@@ -111,6 +112,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "tree_sitter_go"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tree_sitter_php"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

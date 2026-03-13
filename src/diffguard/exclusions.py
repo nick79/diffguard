@@ -218,7 +218,7 @@ def _find_matching_pattern(file_path: str, patterns: list[str]) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def is_generated_file(file_path: str, source_lines: list[str], language: Language) -> bool:
+def is_generated_file(file_path: str, source_lines: list[str], language: Language) -> bool:  # noqa: PLR0911
     """Check if a file is machine-generated or auto-created.
 
     Args:
@@ -240,6 +240,8 @@ def is_generated_file(file_path: str, source_lines: list[str], language: Languag
             return _is_generated_ruby(file_path, source_lines)
         case Language.GO:
             return _is_generated_go(file_path, source_lines)
+        case Language.PHP:
+            return _is_generated_php(file_path, source_lines)
         case _:
             return False
 
@@ -361,6 +363,39 @@ def _is_generated_go(file_path: str, source_lines: list[str]) -> bool:
         if _GO_GENERATED_HEADER.match(stripped):
             return True
         break
+
+    return False
+
+
+_PHP_CACHE_PATH_SEGMENTS: tuple[str, ...] = (
+    "var/cache/",
+    "bootstrap/cache/",
+    "storage/framework/cache/",
+)
+
+_PHP_GENERATED_MARKERS: tuple[str, ...] = (
+    "<?php // auto-generated",
+    "<?php // Auto-generated",
+    "// auto-generated",
+    "// Auto-generated",
+    "@generated",
+    "/* auto-generated",
+    "/* Auto-generated",
+)
+
+
+def _is_generated_php(file_path: str, source_lines: list[str]) -> bool:
+    """Check if a PHP file is auto-generated or a framework cache file."""
+    # Path-based: framework cache directories
+    path_lower = file_path.lower()
+    if any(segment in path_lower for segment in _PHP_CACHE_PATH_SEGMENTS):
+        return True
+
+    # Content markers in first 5 lines
+    for line in source_lines[:5]:
+        stripped = line.strip()
+        if any(marker in stripped for marker in _PHP_GENERATED_MARKERS):
+            return True
 
     return False
 

@@ -62,6 +62,10 @@ def extract_imports(tree: Tree, language: Language) -> list[Import]:  # noqa: PL
             from diffguard.ast.go import extract_go_imports  # noqa: PLC0415
 
             return extract_go_imports(tree)
+        case Language.PHP:
+            from diffguard.ast.php import extract_php_imports  # noqa: PLC0415
+
+            return extract_php_imports(tree)
         case _:
             return []
 
@@ -104,6 +108,10 @@ def find_used_symbols(  # noqa: PLR0911
             from diffguard.ast.go import find_go_used_symbols  # noqa: PLC0415
 
             return find_go_used_symbols(tree, start_line, end_line, exclude_builtins=exclude_builtins)
+        case Language.PHP:
+            from diffguard.ast.php import find_php_used_symbols  # noqa: PLC0415
+
+            return find_php_used_symbols(tree, start_line, end_line, exclude_builtins=exclude_builtins)
         case _:
             return set()
 
@@ -146,6 +154,10 @@ def is_first_party(  # noqa: PLR0911
             from diffguard.ast.go import is_first_party_go  # noqa: PLC0415
 
             return is_first_party_go(module_or_path, project_root, third_party_patterns, is_relative=is_relative)
+        case Language.PHP:
+            from diffguard.ast.php import is_first_party_php  # noqa: PLC0415
+
+            return is_first_party_php(module_or_path, project_root, third_party_patterns, is_relative=is_relative)
         case _:
             return False
 
@@ -187,5 +199,9 @@ def resolve_symbol_definition(  # noqa: PLR0911
             from diffguard.ast.go import resolve_go_symbol  # noqa: PLC0415
 
             return resolve_go_symbol(symbol, imports, project_root, current_file)
+        case Language.PHP:
+            from diffguard.ast.php import resolve_php_symbol  # noqa: PLC0415
+
+            return resolve_php_symbol(symbol, imports, project_root, current_file)
         case _:
             return None

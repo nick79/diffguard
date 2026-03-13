@@ -276,7 +276,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | Java | `.java` | Full |
 | Ruby | `.rb` | Full |
 | Go | `.go` | Full |
-| PHP | `.php` | Planned |
+| PHP | `.php` | Full |
 | Makefile | `Makefile`, `makefile`, `GNUmakefile`, `.mk` | Analysis-only |
 
 Files with unsupported or unrecognized extensions are still included in the diff analysis — they just skip AST-based context enrichment and use raw hunk expansion instead.
@@ -439,6 +439,28 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 
 **Module resolution:** Diffguard resolves Go imports using `go.mod` module path:
 - `github.com/myorg/myapp/internal/utils` → `internal/utils/*.go` (first non-test `.go` file in the package directory)
+
+### PHP
+
+**Scope detection:** Functions, methods (public/private/protected/static), classes, traits, interfaces, anonymous functions (closures with `use` clause), and arrow functions (PHP 7.4+). Constructors (`__construct`) are detected as methods.
+
+**Symbol resolution:** When a changed code region references a symbol imported via `use` statements, diffguard resolves the import to its source file using PSR-4 autoload conventions. Both `use` class imports and grouped use statements (`use App\Models\{User, Post}`) are supported. `require`/`include` and their `_once` variants are also detected.
+
+**First-party detection:** Only first-party (project-local) symbols are resolved — third-party packages are excluded:
+- `use` statements matching PSR-4 namespace prefixes from `composer.json` are first-party
+- `require`/`include` with relative paths (`./`, `../`, `__DIR__`) are first-party
+- All other `use` statements (e.g., `Symfony\...`, `Laravel\...`) are treated as third-party
+
+**Third-party/vendor paths:** Default patterns for PHP:
+- `vendor/` — Composer installed packages
+
+**Generated/cache file detection:** Generated and cached PHP files are automatically excluded from analysis:
+- Path patterns: `var/cache/` (Symfony), `bootstrap/cache/` (Laravel), `storage/framework/cache/` (Laravel)
+- Content heuristic: files with `<?php // auto-generated`, `@generated`, or similar markers in the first 5 lines
+
+**Module resolution:** Diffguard resolves PHP imports using PSR-4 conventions from `composer.json`:
+- `App\Services\UserService` with `{"App\\": "src/"}` → `src/Services/UserService.php`
+- Also tries `src/`, `app/`, `lib/` directories as fallbacks
 
 ### Makefile
 

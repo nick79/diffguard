@@ -63,6 +63,10 @@ def find_enclosing_scope(tree: Tree, line: int, language: Language) -> Scope | N
             from diffguard.ast.go import find_go_scope  # noqa: PLC0415
 
             return find_go_scope(tree, line)
+        case Language.PHP:
+            from diffguard.ast.php import find_php_scope  # noqa: PLC0415
+
+            return find_php_scope(tree, line)
         case _:
             return None
 

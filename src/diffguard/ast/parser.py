@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _parser_cache: dict[Language, Parser] = {}
 
 
-def _load_language(language: Language) -> TSLanguage:
+def _load_language(language: Language) -> TSLanguage:  # noqa: PLR0911
     """Load the tree-sitter grammar for a language.
 
     Raises UnsupportedLanguageError if no grammar is installed.
@@ -44,6 +44,10 @@ def _load_language(language: Language) -> TSLanguage:
             import tree_sitter_go  # noqa: PLC0415
 
             return TSLanguage(tree_sitter_go.language())
+        case Language.PHP:
+            import tree_sitter_php  # noqa: PLC0415
+
+            return TSLanguage(tree_sitter_php.language_php())
         case _:
             raise UnsupportedLanguageError(f"No tree-sitter grammar installed for {language.value}")
 

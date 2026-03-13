@@ -90,6 +90,19 @@ _SYMBOL_NODE_CONFIGS: dict[Language, tuple[frozenset[str], str | None, str]] = {
         None,
         "name",
     ),
+    Language.PHP: (
+        frozenset(
+            {
+                "function_definition",
+                "class_declaration",
+                "trait_declaration",
+                "interface_declaration",
+                "method_declaration",
+            }
+        ),
+        None,
+        "name",
+    ),
 }
 
 
