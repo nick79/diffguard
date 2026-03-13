@@ -555,7 +555,7 @@ class TestGetStagedDiff:
         """get_staged_diff returns diff string."""
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = SAMPLE_SINGLE_FILE_DIFF
+        mock_result.stdout = SAMPLE_SINGLE_FILE_DIFF.encode()
         mock_run.return_value = mock_result
 
         result = get_staged_diff()
@@ -566,7 +566,7 @@ class TestGetStagedDiff:
         """get_staged_diff returns empty for no staged changes."""
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = ""
+        mock_result.stdout = b""
         mock_run.return_value = mock_result
 
         result = get_staged_diff()
@@ -581,7 +581,7 @@ class TestGetStagedDiff:
     def test_raises_git_error_on_failure(self, mock_run: MagicMock) -> None:
         mock_result = MagicMock()
         mock_result.returncode = 1
-        mock_result.stderr = "some error"
+        mock_result.stderr = b"some error"
         mock_run.return_value = mock_result
 
         with pytest.raises(GitError, match="git diff --cached failed"):
@@ -591,6 +591,26 @@ class TestGetStagedDiff:
     def test_raises_git_error_on_timeout(self, _mock_run: MagicMock) -> None:
         with pytest.raises(GitError, match="timed out"):
             get_staged_diff()
+
+    @patch("diffguard.git.subprocess.run")
+    def test_handles_binary_content_without_crashing(self, mock_run: MagicMock) -> None:
+        """get_staged_diff decodes binary diff output with replacement characters."""
+        binary_diff = (
+            b"diff --git a/image.png b/image.png\n"
+            b"new file mode 100644\n"
+            b"Binary files /dev/null and b/image.png differ\n"
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\xae\xff\xfe\n"
+        )
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = binary_diff
+        mock_result.stderr = b""
+        mock_run.return_value = mock_result
+
+        result = get_staged_diff()
+        assert isinstance(result, str)
+        assert "image.png" in result
+        assert "Binary files" in result
 
 
 class TestCQuotedParsing:

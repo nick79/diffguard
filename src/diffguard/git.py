@@ -75,7 +75,6 @@ def get_staged_diff() -> str:
         result = subprocess.run(
             ["git", "diff", "--cached"],
             capture_output=True,
-            text=True,
             check=False,
             timeout=_SUBPROCESS_TIMEOUT,
         )
@@ -87,10 +86,10 @@ def get_staged_diff() -> str:
         raise GitError(msg) from e
 
     if result.returncode != 0:
-        msg = f"git diff --cached failed: {result.stderr.strip()}"
+        msg = f"git diff --cached failed: {result.stderr.decode(errors='replace').strip()}"
         raise GitError(msg)
 
-    return result.stdout
+    return result.stdout.decode(errors="replace")
 
 
 def get_commit_hash() -> str | None:
