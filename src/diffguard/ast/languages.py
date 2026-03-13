@@ -14,6 +14,7 @@ class Language(enum.Enum):
     RUBY = "ruby"
     GO = "go"
     PHP = "php"
+    HTML = "html"
     MAKEFILE = "makefile"
 
 
@@ -32,7 +33,23 @@ _EXTENSION_MAP: dict[str, Language] = {
     ".rb": Language.RUBY,
     ".go": Language.GO,
     ".php": Language.PHP,
+    ".html": Language.HTML,
+    ".htm": Language.HTML,
+    ".ejs": Language.HTML,
+    ".hbs": Language.HTML,
+    ".handlebars": Language.HTML,
+    ".njk": Language.HTML,
+    ".nunjucks": Language.HTML,
+    ".pug": Language.HTML,
+    ".erb": Language.HTML,
+    ".jinja": Language.HTML,
+    ".jinja2": Language.HTML,
+    ".mustache": Language.HTML,
     ".mk": Language.MAKEFILE,
+}
+
+_COMPOUND_EXTENSION_MAP: dict[str, Language] = {
+    ".blade.php": Language.HTML,
 }
 
 _FILENAME_MAP: dict[str, Language] = {
@@ -47,9 +64,17 @@ def detect_language(file_path: str) -> Language | None:
 
     Returns None for unrecognized or missing extensions/filenames.
     Handles case-insensitive extensions, hidden files, and double extensions.
+    Checks compound extensions (e.g. .blade.php) before single-suffix lookup.
     Falls back to filename-based detection for extensionless files (e.g. Makefile).
     """
     path = PurePosixPath(file_path)
+    name_lower = path.name.lower()
+
+    # Check compound extensions first (e.g. .blade.php before .php)
+    for compound_ext, lang in _COMPOUND_EXTENSION_MAP.items():
+        if name_lower.endswith(compound_ext):
+            return lang
+
     suffix = path.suffix.lower()
     if suffix:
         return _EXTENSION_MAP.get(suffix)

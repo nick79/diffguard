@@ -277,6 +277,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | Ruby | `.rb` | Full |
 | Go | `.go` | Full |
 | PHP | `.php` | Full |
+| HTML & Templates | `.html`, `.htm`, `.ejs`, `.hbs`, `.handlebars`, `.njk`, `.nunjucks`, `.pug`, `.erb`, `.jinja`, `.jinja2`, `.mustache`, `.blade.php` | Analysis-only |
 | Makefile | `Makefile`, `makefile`, `GNUmakefile`, `.mk` | Analysis-only |
 
 Files with unsupported or unrecognized extensions are still included in the diff analysis — they just skip AST-based context enrichment and use raw hunk expansion instead.
@@ -461,6 +462,24 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 **Module resolution:** Diffguard resolves PHP imports using PSR-4 conventions from `composer.json`:
 - `App\Services\UserService` with `{"App\\": "src/"}` → `src/Services/UserService.php`
 - Also tries `src/`, `app/`, `lib/` directories as fallbacks
+
+### HTML & Templates
+
+**Analysis-only support.** HTML and common template file formats are detected and sent to the LLM for security analysis with raw hunk expansion. No AST-based scope detection, import extraction, or symbol resolution is performed.
+
+**Extensions:** `.html`, `.htm`, `.ejs`, `.hbs`, `.handlebars`, `.njk`, `.nunjucks`, `.pug`, `.erb`, `.jinja`, `.jinja2`, `.mustache`, `.blade.php`
+
+**Blade templates:** Files ending in `.blade.php` are detected as HTML templates (analysis-only), not as PHP files. This ensures Blade templates get XSS-focused analysis rather than full PHP AST parsing. Regular `.php` files are unaffected.
+
+**Key XSS surfaces detected by the LLM:**
+- EJS: `<%- userInput %>` (unescaped output)
+- Jinja2/Nunjucks: `{{ var | safe }}`, `{% autoescape false %}`
+- Handlebars/Mustache: `{{{ raw }}}` (triple-brace unescaped)
+- Pug: `!{userInput}` (unescaped interpolation)
+- ERB: `<%= raw_html %>` combined with `html_safe`
+- Blade: `{!! $variable !!}` (unescaped), `@php` blocks
+
+**Generated file detection:** Minified HTML files (average line length > 500 characters) are automatically excluded from analysis.
 
 ### Makefile
 
