@@ -15,6 +15,7 @@ class Language(enum.Enum):
     GO = "go"
     PHP = "php"
     HTML = "html"
+    CSS = "css"
     MAKEFILE = "makefile"
 
 
@@ -45,6 +46,10 @@ _EXTENSION_MAP: dict[str, Language] = {
     ".jinja": Language.HTML,
     ".jinja2": Language.HTML,
     ".mustache": Language.HTML,
+    ".css": Language.CSS,
+    ".scss": Language.CSS,
+    ".sass": Language.CSS,
+    ".less": Language.CSS,
     ".mk": Language.MAKEFILE,
 }
 

@@ -278,6 +278,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | Go | `.go` | Full |
 | PHP | `.php` | Full |
 | HTML & Templates | `.html`, `.htm`, `.ejs`, `.hbs`, `.handlebars`, `.njk`, `.nunjucks`, `.pug`, `.erb`, `.jinja`, `.jinja2`, `.mustache`, `.blade.php` | Analysis-only |
+| CSS & Stylesheets | `.css`, `.scss`, `.sass`, `.less` | Analysis-only |
 | Makefile | `Makefile`, `makefile`, `GNUmakefile`, `.mk` | Analysis-only |
 
 Files with unsupported or unrecognized extensions are still included in the diff analysis — they just skip AST-based context enrichment and use raw hunk expansion instead.
@@ -480,6 +481,18 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 - Blade: `{!! $variable !!}` (unescaped), `@php` blocks
 
 **Generated file detection:** Minified HTML files (average line length > 500 characters) are automatically excluded from analysis.
+
+### CSS & Stylesheets
+
+**Analysis-only support.** CSS and preprocessor files are detected and sent to the LLM for security analysis with raw hunk expansion. No AST-based scope detection, import extraction, or symbol resolution is performed.
+
+**Extensions:** `.css`, `.scss`, `.sass`, `.less`
+
+**Key security surfaces detected by the LLM:**
+- CSS injection via `url()` for data exfiltration
+- `@import` SSRF (loading external stylesheets from attacker-controlled URLs)
+- Legacy IE vectors: `expression()`, `behavior:` (CSS-based code execution)
+- Sensitive data leakage via attribute selectors combined with `url()`
 
 ### Makefile
 
