@@ -604,6 +604,7 @@ def clear_composer_cache() -> None:
     """Clear the composer.json cache (useful for testing)."""
     _composer_cache.clear()
     _laravel_project_cache.clear()
+    _wordpress_project_cache.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -667,6 +668,7 @@ def is_first_party_php(
     third_party_patterns: list[str] | None = None,
     *,
     is_relative: bool = False,
+    current_file: Path | None = None,
 ) -> bool:
     """Determine whether a PHP import is first-party project code."""
     # Relative require/include paths are first-party
@@ -683,7 +685,105 @@ def is_first_party_php(
         return True
 
     # Laravel: App\ namespace is always first-party
-    return _detect_laravel_project(project_root) and module_or_path.startswith("App\\")
+    if _detect_laravel_project(project_root) and module_or_path.startswith("App\\"):
+        return True
+
+    # WordPress: file-path-based first-party detection
+    if _detect_wordpress_project(project_root) and current_file is not None:
+        return _is_wordpress_first_party(module_or_path, project_root, current_file)
+
+    return False
+
+
+# ---------------------------------------------------------------------------
+# WordPress framework support
+# ---------------------------------------------------------------------------
+
+_wordpress_project_cache: dict[Path, bool] = {}
+
+_WP_CORE_DIRS: frozenset[str] = frozenset(
+    {
+        "wp-includes/",
+        "wp-admin/",
+    }
+)
+
+_WP_EXCLUDED_CONTENT_DIRS: frozenset[str] = frozenset(
+    {
+        "wp-content/cache/",
+        "wp-content/uploads/",
+        "wp-content/upgrade/",
+    }
+)
+
+_WP_PLUGIN_HEADER_MARKER = "Plugin Name:"
+_WP_THEME_HEADER_MARKER = "Theme Name:"
+
+
+def _detect_wordpress_project(project_root: Path) -> bool:
+    """Check if the project root is a WordPress project.
+
+    Detects via:
+    - ``wp-config.php`` at project root (full WordPress install)
+    - Plugin header (``Plugin Name:`` in main PHP file)
+    - Theme header (``Theme Name:`` in ``style.css``)
+    """
+    if project_root in _wordpress_project_cache:
+        return _wordpress_project_cache[project_root]
+
+    result = _check_wordpress_markers(project_root)
+    _wordpress_project_cache[project_root] = result
+    return result
+
+
+def _check_wordpress_markers(project_root: Path) -> bool:
+    """Check for WordPress project markers at the given root."""
+    # Full WordPress installation
+    if (project_root / "wp-config.php").is_file():
+        return True
+
+    # Plugin: check PHP files at root for Plugin Name: header
+    for php_file in project_root.glob("*.php"):
+        try:
+            head = php_file.read_text(encoding="utf-8", errors="replace")[:2048]
+            if _WP_PLUGIN_HEADER_MARKER in head:
+                return True
+        except OSError:
+            continue
+
+    # Theme: check style.css for Theme Name: header
+    style_css = project_root / "style.css"
+    if style_css.is_file():
+        try:
+            head = style_css.read_text(encoding="utf-8", errors="replace")[:2048]
+            if _WP_THEME_HEADER_MARKER in head:
+                return True
+        except OSError:
+            pass
+
+    return False
+
+
+def _is_wordpress_first_party(
+    module_or_path: str,  # noqa: ARG001
+    project_root: Path,
+    current_file: Path,
+) -> bool:
+    """Determine if a reference is first-party in a WordPress context.
+
+    In a WordPress plugin/theme, the plugin/theme's own files are first-party.
+    ``wp-includes/``, ``wp-admin/``, and other plugins' directories are third-party.
+    """
+    try:
+        rel = current_file.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return False
+
+    rel_str = str(rel)
+
+    # Files in wp-includes/ or wp-admin/ are WordPress core — not first-party
+    # Files in wp-content/plugins/<name>/ or wp-content/themes/<name>/ are first-party
+    return not any(rel_str.startswith(d.rstrip("/")) for d in _WP_CORE_DIRS)
 
 
 # ---------------------------------------------------------------------------

@@ -482,6 +482,19 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 
 **Blade templates:** `.blade.php` files are analyzed as HTML templates (analysis-only via HTML & Templates support), not as PHP files.
 
+#### WordPress Framework Support
+
+**WordPress:** Diffguard detects WordPress projects via `wp-config.php` at the project root, or by recognizing standalone plugin/theme projects (`Plugin Name:` header in a PHP file, or `Theme Name:` header in `style.css`).
+
+**First-party detection:** In a WordPress plugin or theme, the plugin/theme's own files are treated as first-party. WordPress core directories (`wp-includes/`, `wp-admin/`) and other plugins' files are treated as third-party.
+
+**Excluded paths:** The following WordPress directories are excluded from analysis by default:
+- `wp-includes/` — WordPress core
+- `wp-admin/` — WordPress admin core
+- `wp-content/cache/` — cache plugin output (WP Super Cache, W3 Total Cache)
+- `wp-content/uploads/` — media uploads directory
+- `wp-content/upgrade/` — upgrade working directory
+
 ### Vue
 
 **Hybrid support.** Vue Single File Components (`.vue`) receive a hybrid analysis approach:
