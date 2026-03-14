@@ -279,6 +279,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | PHP | `.php` | Full |
 | Vue | `.vue` | Hybrid (script: Full, template: Analysis-only) |
 | Svelte | `.svelte` | Hybrid (script: Full, template: Analysis-only) |
+| Astro | `.astro` | Hybrid (frontmatter: Full, template: Analysis-only) |
 | HTML & Templates | `.html`, `.htm`, `.ejs`, `.hbs`, `.handlebars`, `.njk`, `.nunjucks`, `.pug`, `.erb`, `.jinja`, `.jinja2`, `.mustache`, `.blade.php` | Analysis-only |
 | CSS & Stylesheets | `.css`, `.scss`, `.sass`, `.less` | Analysis-only |
 | Makefile | `Makefile`, `makefile`, `GNUmakefile`, `.mk` | Analysis-only |
@@ -495,6 +496,21 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 - `{@html userInput}` — raw HTML rendering (bypasses Svelte's default escaping)
 
 **Generated file detection:** Minified Svelte components (average line length > 500 characters) are automatically excluded from analysis.
+
+### Astro
+
+**Hybrid support.** Astro components (`.astro`) receive a hybrid analysis approach:
+
+- **Frontmatter → Full AST enrichment.** The frontmatter block (code between `---` fences) is extracted, parsed as JavaScript or TypeScript, and receives full scope detection, import extraction, and symbol resolution. Scope line numbers are mapped back to full-file coordinates so the LLM sees correct positions.
+- **Template content → Analysis-only.** Everything after the closing `---` fence is template markup, included in the expanded region for raw LLM analysis — no template-specific AST parsing.
+- **TypeScript detection:** Frontmatter is detected as TypeScript when it contains `import type`, triple-slash `/// <reference types="...">` directives, or type annotations.
+
+**Key XSS surfaces detected by the LLM:**
+- `set:html={userInput}` — raw HTML rendering (bypasses Astro's default escaping)
+- Unescaped `{expressions}` in template markup
+- `define:vars` on `<script>` tags — injects server-side variables into client-side code
+
+**Generated file detection:** Minified Astro components (average line length > 500 characters) are automatically excluded from analysis.
 
 ### HTML & Templates
 

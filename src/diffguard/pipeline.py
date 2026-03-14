@@ -19,6 +19,7 @@ from diffguard.ast import (
     parse_file,
     resolve_symbol_definition,
 )
+from diffguard.ast.astro import detect_astro_frontmatter_language, extract_astro_frontmatter
 from diffguard.ast.svelte import detect_svelte_script_language, extract_svelte_script
 from diffguard.ast.vue import detect_vue_script_language, extract_vue_script
 from diffguard.context import Region, build_file_regions, read_file_lines
@@ -347,6 +348,10 @@ def _build_file_context(
         scopes, symbols = _build_svelte_context(
             source_lines, diff_lines, regions, config, project_root, file_path, diff_file.is_new_file
         )
+    elif language == Language.ASTRO:
+        scopes, symbols = _build_astro_context(
+            source_lines, diff_lines, regions, config, project_root, file_path, diff_file.is_new_file
+        )
     else:
         # Parse AST — catch UnsupportedLanguageError so file continues without AST
         tree: Tree | None = None
@@ -514,6 +519,74 @@ def _build_svelte_context(
     symbols = _build_symbols(
         tree, script_regions, script_language, script_source_lines, project_root, file_path, config
     )
+
+    return scopes, symbols
+
+
+def _build_astro_context(
+    source_lines: list[str],
+    diff_lines: list[DiffLine],
+    regions: list[Region],
+    config: DiffguardConfig,
+    project_root: Path,
+    file_path: Path,
+    is_new_file: bool,
+) -> tuple[list[ScopeContext], dict[str, SymbolDef]]:
+    """Build scopes and symbols for an Astro component via its extracted frontmatter block."""
+    source_text = "\n".join(source_lines)
+    fm_result = extract_astro_frontmatter(source_text)
+    if fm_result is None:
+        return [], {}
+
+    fm_content, fm_start = fm_result
+    fm_language = detect_astro_frontmatter_language(source_text)
+    fm_line_count = fm_content.count("\n") + 1
+    fm_end = fm_start + fm_line_count - 1
+
+    try:
+        tree = parse_file(fm_content, fm_language)
+    except UnsupportedLanguageError:
+        tree = None
+
+    if tree is None:
+        return [], {}
+
+    # Filter diff_lines to frontmatter range and adjust to frontmatter-relative line numbers
+    offset = fm_start - 1
+    fm_diff_lines: list[DiffLine] = []
+    for dl in diff_lines:
+        if fm_start <= dl.line_num <= fm_end:
+            fm_diff_lines.append(
+                DiffLine(line_num=dl.line_num - offset, change_type=dl.change_type, content=dl.content)
+            )
+
+    fm_source_lines = fm_content.split("\n")
+
+    # Build scopes with frontmatter-relative lines, then adjust back to full-file coordinates
+    raw_scopes = _build_scopes(tree, fm_diff_lines, fm_language, fm_source_lines, config.scope_size_limit, is_new_file)
+    scopes = [
+        ScopeContext(
+            type=sc.type,
+            name=sc.name,
+            start_line=sc.start_line + offset,
+            end_line=sc.end_line + offset,
+            source=sc.source,
+        )
+        for sc in raw_scopes
+    ]
+
+    # Filter regions to frontmatter range and adjust to frontmatter-relative line numbers
+    fm_regions: list[Region] = []
+    for r in regions:
+        if r.end_line >= fm_start and r.start_line <= fm_end:
+            fm_regions.append(
+                Region(
+                    start_line=max(1, r.start_line - offset),
+                    end_line=min(fm_line_count, r.end_line - offset),
+                )
+            )
+
+    symbols = _build_symbols(tree, fm_regions, fm_language, fm_source_lines, project_root, file_path, config)
 
     return scopes, symbols
 

@@ -246,6 +246,8 @@ def is_generated_file(file_path: str, source_lines: list[str], language: Languag
             return _is_generated_vue(source_lines)
         case Language.SVELTE:
             return _is_generated_svelte(source_lines)
+        case Language.ASTRO:
+            return _is_generated_astro(source_lines)
         case Language.HTML:
             return _is_generated_html(source_lines)
         case _:
@@ -428,6 +430,16 @@ def _is_generated_vue(source_lines: list[str]) -> bool:
 
 def _is_generated_svelte(source_lines: list[str]) -> bool:
     """Check if a Svelte component is minified."""
+    if source_lines:
+        total_chars = sum(len(line) for line in source_lines)
+        avg_length = total_chars / len(source_lines)
+        if avg_length > 500:
+            return True
+    return False
+
+
+def _is_generated_astro(source_lines: list[str]) -> bool:
+    """Check if an Astro component is minified."""
     if source_lines:
         total_chars = sum(len(line) for line in source_lines)
         avg_length = total_chars / len(source_lines)
