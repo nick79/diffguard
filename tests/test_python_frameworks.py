@@ -1,0 +1,265 @@
+"""Tests for Python framework support (Django, Flask, FastAPI)."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import pytest
+
+from diffguard.ast.languages import Language
+from diffguard.ast.python import (
+    _detect_django_project,
+    _detect_fastapi_project,
+    _detect_flask_project,
+    clear_framework_cache,
+    is_python_first_party,
+)
+from diffguard.config import DiffguardConfig
+from diffguard.exclusions import is_generated_file
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def django_project(tmp_path: Path) -> Generator[Path]:
+    """Create a minimal Django project structure."""
+    (tmp_path / "manage.py").write_text("#!/usr/bin/env python\nimport django\n")
+    clear_framework_cache()
+    yield tmp_path
+    clear_framework_cache()
+
+
+@pytest.fixture()
+def flask_project(tmp_path: Path) -> Generator[Path]:
+    """Create a minimal Flask project structure."""
+    (tmp_path / "app.py").write_text("from flask import Flask\napp = Flask(__name__)\n")
+    clear_framework_cache()
+    yield tmp_path
+    clear_framework_cache()
+
+
+@pytest.fixture()
+def fastapi_project(tmp_path: Path) -> Generator[Path]:
+    """Create a minimal FastAPI project structure."""
+    (tmp_path / "main.py").write_text("from fastapi import FastAPI\napp = FastAPI()\n")
+    clear_framework_cache()
+    yield tmp_path
+    clear_framework_cache()
+
+
+@pytest.fixture()
+def plain_project(tmp_path: Path) -> Generator[Path]:
+    """Create a plain Python project (no framework)."""
+    clear_framework_cache()
+    yield tmp_path
+    clear_framework_cache()
+
+
+# ---------------------------------------------------------------------------
+# Django detection
+# ---------------------------------------------------------------------------
+
+
+class TestDjangoDetection:
+    def test_detect_with_manage_py(self, django_project: Path) -> None:
+        assert _detect_django_project(django_project) is True
+
+    def test_no_manage_py(self, plain_project: Path) -> None:
+        assert _detect_django_project(plain_project) is False
+
+    def test_cached_result(self, django_project: Path) -> None:
+        assert _detect_django_project(django_project) is True
+        # Remove the file; cache should still return True
+        (django_project / "manage.py").unlink()
+        assert _detect_django_project(django_project) is True
+
+
+# ---------------------------------------------------------------------------
+# Flask detection
+# ---------------------------------------------------------------------------
+
+
+class TestFlaskDetection:
+    def test_detect_via_app_py(self, flask_project: Path) -> None:
+        assert _detect_flask_project(flask_project) is True
+
+    def test_detect_via_wsgi_py(self, tmp_path: Path) -> None:
+        (tmp_path / "wsgi.py").write_text("from flask import Flask\napp = Flask(__name__)\n")
+        clear_framework_cache()
+        assert _detect_flask_project(tmp_path) is True
+        clear_framework_cache()
+
+    def test_no_flask_markers(self, plain_project: Path) -> None:
+        assert _detect_flask_project(plain_project) is False
+
+    def test_app_py_without_flask_marker(self, tmp_path: Path) -> None:
+        (tmp_path / "app.py").write_text("print('hello')\n")
+        clear_framework_cache()
+        assert _detect_flask_project(tmp_path) is False
+        clear_framework_cache()
+
+
+# ---------------------------------------------------------------------------
+# FastAPI detection
+# ---------------------------------------------------------------------------
+
+
+class TestFastAPIDetection:
+    def test_detect_via_main_py(self, fastapi_project: Path) -> None:
+        assert _detect_fastapi_project(fastapi_project) is True
+
+    def test_detect_via_asgi_py(self, tmp_path: Path) -> None:
+        (tmp_path / "asgi.py").write_text("from fastapi import FastAPI\napp = FastAPI()\n")
+        clear_framework_cache()
+        assert _detect_fastapi_project(tmp_path) is True
+        clear_framework_cache()
+
+    def test_no_fastapi_markers(self, plain_project: Path) -> None:
+        assert _detect_fastapi_project(plain_project) is False
+
+    def test_main_py_without_fastapi_marker(self, tmp_path: Path) -> None:
+        (tmp_path / "main.py").write_text("print('hello')\n")
+        clear_framework_cache()
+        assert _detect_fastapi_project(tmp_path) is False
+        clear_framework_cache()
+
+
+# ---------------------------------------------------------------------------
+# Generated file detection (Python)
+# ---------------------------------------------------------------------------
+
+
+class TestPythonGeneratedFiles:
+    def test_django_migration_with_generated_header(self) -> None:
+        content = [
+            "# Generated by Django 4.2 on 2024-01-01 00:00",
+            "",
+            "from django.db import migrations, models",
+            "",
+            "class Migration(migrations.Migration):",
+        ]
+        assert is_generated_file("myapp/migrations/0001_initial.py", content, Language.PYTHON) is True
+
+    def test_hand_written_migration(self) -> None:
+        content = [
+            "from django.db import migrations, models",
+            "",
+            "class Migration(migrations.Migration):",
+            "    operations = []",
+        ]
+        assert is_generated_file("myapp/migrations/0002_custom.py", content, Language.PYTHON) is False
+
+    def test_normal_python_file_not_generated(self) -> None:
+        content = [
+            "from django.shortcuts import render",
+            "",
+            "def index(request):",
+            '    return render(request, "index.html")',
+        ]
+        assert is_generated_file("myapp/views.py", content, Language.PYTHON) is False
+
+    def test_generic_auto_generated_header(self) -> None:
+        content = [
+            "# Auto-generated by some-tool",
+            "CONFIG = {'key': 'value'}",
+        ]
+        assert is_generated_file("config.py", content, Language.PYTHON) is True
+
+    def test_generated_by_header(self) -> None:
+        content = [
+            "# Generated by protoc-gen-python",
+            "class MyMessage:",
+            "    pass",
+        ]
+        assert is_generated_file("proto/message_pb2.py", content, Language.PYTHON) is True
+
+    def test_do_not_edit_header(self) -> None:
+        content = [
+            "# DO NOT EDIT - auto-generated file",
+            "LOOKUP = {}",
+        ]
+        assert is_generated_file("generated_lookup.py", content, Language.PYTHON) is True
+
+    def test_migration_path_without_header(self) -> None:
+        content = [
+            "from django.db import migrations",
+            "",
+            "class Migration(migrations.Migration):",
+        ]
+        assert is_generated_file("myapp/migrations/0003_manual.py", content, Language.PYTHON) is False
+
+
+# ---------------------------------------------------------------------------
+# First-party detection with Django
+# ---------------------------------------------------------------------------
+
+
+class TestDjangoFirstParty:
+    def test_django_app_module_is_first_party(self, django_project: Path) -> None:
+        app_dir = django_project / "myapp"
+        app_dir.mkdir()
+        (app_dir / "__init__.py").touch()
+        (app_dir / "models.py").write_text("class User: pass\n")
+        (app_dir / "views.py").write_text("def index(): pass\n")
+
+        assert is_python_first_party("myapp.models", django_project) is True
+
+    def test_django_app_top_level_is_first_party(self, django_project: Path) -> None:
+        app_dir = django_project / "accounts"
+        app_dir.mkdir()
+        (app_dir / "__init__.py").touch()
+        (app_dir / "models.py").touch()
+        (app_dir / "views.py").touch()
+        (app_dir / "admin.py").touch()
+
+        assert is_python_first_party("accounts", django_project) is True
+
+    def test_non_django_project_no_app_fallback(self, plain_project: Path) -> None:
+        # Module doesn't exist on disk, so only Django fallback would find it
+        assert is_python_first_party("myapp.models", plain_project) is False
+
+    def test_stdlib_still_excluded_in_django(self, django_project: Path) -> None:
+        assert is_python_first_party("os", django_project) is False
+        assert is_python_first_party("json", django_project) is False
+
+    def test_relative_import_still_first_party(self, django_project: Path) -> None:
+        assert is_python_first_party(".models", django_project, is_relative=True) is True
+
+    def test_directory_without_init_not_app(self, django_project: Path) -> None:
+        app_dir = django_project / "noapp"
+        app_dir.mkdir()
+        (app_dir / "models.py").touch()
+        (app_dir / "views.py").touch()
+        # No __init__.py
+
+        assert is_python_first_party("noapp", django_project) is False
+
+    def test_directory_without_markers_not_app(self, django_project: Path) -> None:
+        # No directory on disk at all — only Django app detection would help
+        # A non-app module name that can't be resolved on disk
+        assert is_python_first_party("nonexistent_app", django_project) is False
+
+
+# ---------------------------------------------------------------------------
+# Vendor path filtering
+# ---------------------------------------------------------------------------
+
+
+class TestVendorPathPatterns:
+    def test_staticfiles_in_default_patterns(self) -> None:
+        config = DiffguardConfig()
+        assert "staticfiles/" in config.third_party_patterns
+
+    def test_tox_in_default_patterns(self) -> None:
+        config = DiffguardConfig()
+        assert ".tox/" in config.third_party_patterns
+
+    def test_htmlcov_in_default_patterns(self) -> None:
+        config = DiffguardConfig()
+        assert "htmlcov/" in config.third_party_patterns

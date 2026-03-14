@@ -6,6 +6,7 @@ import builtins
 import logging
 import sys
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,22 @@ if TYPE_CHECKING:
     from tree_sitter import Node, Tree
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Django app detection markers (files that indicate a Django "app" directory)
+# ---------------------------------------------------------------------------
+
+_DJANGO_APP_MARKERS: frozenset[str] = frozenset(
+    {
+        "models.py",
+        "views.py",
+        "admin.py",
+        "forms.py",
+        "urls.py",
+        "apps.py",
+        "serializers.py",
+    }
+)
 
 _STDLIB_MODULES: frozenset[str] = frozenset(sys.stdlib_module_names)
 _BUILTIN_NAMES: frozenset[str] = frozenset(dir(builtins))
@@ -372,7 +389,8 @@ def is_python_first_party(
     """Determine whether an import is first-party project code.
 
     Relative imports are always first-party. Stdlib and third-party imports
-    are not first-party.
+    are not first-party. In Django projects, app modules (directories with
+    __init__.py and conventional files like models.py, views.py) are first-party.
     """
     if is_relative:
         return True
@@ -389,9 +407,16 @@ def is_python_first_party(
 
     # Module name: try to find it in the project
     resolved_path = _resolve_module_to_path(module_or_path, project_root)
-    if resolved_path is None:
-        return False
-    return _path_passes_third_party_check(str(resolved_path), patterns)
+    if resolved_path is not None:
+        return _path_passes_third_party_check(str(resolved_path), patterns)
+
+    # Django app fallback: check if top-level module matches a Django app directory
+    if _detect_django_project(project_root):
+        django_apps = _find_django_apps(project_root)
+        if top_level in django_apps or module_or_path in django_apps:
+            return True
+
+    return False
 
 
 def _is_first_party_path(path_str: str, project_root: Path, patterns: list[str]) -> bool:
@@ -512,3 +537,95 @@ def _resolve_relative_import(imp: Import, current_file: Path) -> Path | None:
         return candidate
 
     return None
+
+
+# ---------------------------------------------------------------------------
+# Framework detection
+# ---------------------------------------------------------------------------
+
+_django_project_cache: dict[Path, bool] = {}
+_flask_project_cache: dict[Path, bool] = {}
+_fastapi_project_cache: dict[Path, bool] = {}
+
+_FLASK_ENTRY_FILES: tuple[str, ...] = ("app.py", "wsgi.py", "application.py")
+_FASTAPI_ENTRY_FILES: tuple[str, ...] = ("main.py", "app.py", "asgi.py")
+
+
+def _detect_django_project(project_root: Path) -> bool:
+    """Detect a Django project by the presence of manage.py."""
+    resolved = project_root.resolve()
+    cached = _django_project_cache.get(resolved)
+    if cached is not None:
+        return cached
+    result = (resolved / "manage.py").is_file()
+    _django_project_cache[resolved] = result
+    return result
+
+
+def _detect_flask_project(project_root: Path) -> bool:
+    """Detect a Flask project by finding Flask(__name__) in common entry files."""
+    resolved = project_root.resolve()
+    cached = _flask_project_cache.get(resolved)
+    if cached is not None:
+        return cached
+    result = _file_contains_marker(resolved, _FLASK_ENTRY_FILES, "Flask(__name__)")
+    _flask_project_cache[resolved] = result
+    return result
+
+
+def _detect_fastapi_project(project_root: Path) -> bool:
+    """Detect a FastAPI project by finding FastAPI() in common entry files."""
+    resolved = project_root.resolve()
+    cached = _fastapi_project_cache.get(resolved)
+    if cached is not None:
+        return cached
+    result = _file_contains_marker(resolved, _FASTAPI_ENTRY_FILES, "FastAPI(")
+    _fastapi_project_cache[resolved] = result
+    return result
+
+
+def _file_contains_marker(root: Path, filenames: tuple[str, ...], marker: str) -> bool:
+    """Check if any of the given files contain the marker string."""
+    for name in filenames:
+        path = root / name
+        if not path.is_file():
+            continue
+        try:
+            content = path.read_text(encoding="utf-8", errors="replace")[:4096]
+            if marker in content:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _is_django_app_directory(directory: Path) -> bool:
+    """Check if a directory looks like a Django app (has __init__.py + conventional files)."""
+    if not (directory / "__init__.py").is_file():
+        return False
+    return any((directory / marker).is_file() for marker in _DJANGO_APP_MARKERS)
+
+
+@lru_cache(maxsize=128)
+def _find_django_apps(project_root: Path) -> frozenset[str]:
+    """Find all Django app directory names in a project."""
+    resolved = project_root.resolve()
+    apps: set[str] = set()
+    # Check immediate subdirectories and one level deeper
+    for candidate in resolved.iterdir():
+        if candidate.is_dir() and _is_django_app_directory(candidate):
+            apps.add(candidate.name)
+        if candidate.is_dir():
+            for sub in candidate.iterdir():
+                if sub.is_dir() and _is_django_app_directory(sub):
+                    # Use dot-separated path relative to project root
+                    apps.add(f"{candidate.name}.{sub.name}")
+    return frozenset(apps)
+
+
+def clear_framework_cache() -> None:
+    """Clear all framework detection caches (for testing)."""
+    _django_project_cache.clear()
+    _flask_project_cache.clear()
+    _fastapi_project_cache.clear()
+    _find_django_apps.cache_clear()
