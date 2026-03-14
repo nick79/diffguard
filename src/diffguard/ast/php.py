@@ -603,6 +603,62 @@ def _read_composer_psr4(project_root: Path) -> dict[str, str]:
 def clear_composer_cache() -> None:
     """Clear the composer.json cache (useful for testing)."""
     _composer_cache.clear()
+    _laravel_project_cache.clear()
+
+
+# ---------------------------------------------------------------------------
+# Laravel framework support
+# ---------------------------------------------------------------------------
+
+_laravel_project_cache: dict[Path, bool] = {}
+
+
+def _detect_laravel_project(project_root: Path) -> bool:
+    """Check if the project root contains an artisan file (Laravel marker)."""
+    if project_root in _laravel_project_cache:
+        return _laravel_project_cache[project_root]
+    result = (project_root / "artisan").is_file()
+    _laravel_project_cache[project_root] = result
+    return result
+
+
+_LARAVEL_AUTOLOAD_DIRS: tuple[str, ...] = (
+    "app/Models",
+    "app/Http/Controllers",
+    "app/Http/Middleware",
+    "app/Services",
+    "app/Providers",
+    "app/Jobs",
+    "app/Events",
+    "app/Listeners",
+    "app/Mail",
+)
+
+
+def _resolve_laravel_convention(namespace: str, project_root: Path) -> Path | None:
+    """Resolve a PHP namespace to a file using Laravel's App\\ → app/ convention.
+
+    Laravel maps ``App\\Models\\User`` → ``app/Models/User.php``, etc.
+    """
+    if not namespace.startswith("App\\"):
+        return None
+
+    # Strip the App\\ prefix and convert to path
+    relative = namespace[len("App\\") :].replace("\\", "/")
+    candidate = project_root / "app" / (relative + ".php")
+    if candidate.is_file():
+        return candidate
+    return None
+
+
+def _resolve_laravel_symbol(symbol: str, project_root: Path) -> Path | None:
+    """Search common Laravel directories for a symbol by class name."""
+    filename = symbol + ".php"
+    for dir_path in _LARAVEL_AUTOLOAD_DIRS:
+        candidate = project_root / dir_path / filename
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def is_first_party_php(
@@ -623,7 +679,11 @@ def is_first_party_php(
 
     # Check against PSR-4 namespaces from composer.json
     psr4 = _detect_psr4_namespaces(project_root)
-    return any(module_or_path.startswith(namespace_prefix) for namespace_prefix in psr4)
+    if any(module_or_path.startswith(namespace_prefix) for namespace_prefix in psr4):
+        return True
+
+    # Laravel: App\ namespace is always first-party
+    return _detect_laravel_project(project_root) and module_or_path.startswith("App\\")
 
 
 # ---------------------------------------------------------------------------
@@ -639,10 +699,16 @@ def resolve_php_symbol(
 ) -> Path | None:
     """Resolve an imported symbol name to a file path in the project."""
     source_import = _find_import_for_symbol(symbol, imports)
-    if source_import is None:
-        return None
+    if source_import is not None:
+        result = _resolve_use_to_path(source_import.module, project_root)
+        if result is not None:
+            return result
 
-    return _resolve_use_to_path(source_import.module, project_root)
+    # Laravel fallback: search common directories
+    if _detect_laravel_project(project_root):
+        return _resolve_laravel_symbol(symbol, project_root)
+
+    return None
 
 
 def _find_import_for_symbol(symbol: str, imports: list[Import]) -> Import | None:

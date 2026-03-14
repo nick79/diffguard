@@ -379,6 +379,7 @@ _PHP_CACHE_PATH_SEGMENTS: tuple[str, ...] = (
     "var/cache/",
     "bootstrap/cache/",
     "storage/framework/cache/",
+    "storage/framework/views/",
 )
 
 _PHP_GENERATED_MARKERS: tuple[str, ...] = (

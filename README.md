@@ -467,6 +467,21 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 - `App\Services\UserService` with `{"App\\": "src/"}` → `src/Services/UserService.php`
 - Also tries `src/`, `app/`, `lib/` directories as fallbacks
 
+#### Laravel Framework Support
+
+**Laravel:** Diffguard detects Laravel projects (via `artisan` file at project root) and adds convention-based symbol resolution. When a changed region references a class with no matching import, diffguard resolves it via Laravel's `App\` → `app/` directory convention:
+- `App\Models\User` → `app/Models/User.php`
+- `App\Http\Controllers\UserController` → `app/Http/Controllers/UserController.php`
+- `App\Services\Payment\StripeService` → `app/Services/Payment/StripeService.php`
+
+**First-party detection:** In Laravel projects, all classes under the `App\` namespace are treated as first-party, even without `composer.json` PSR-4 configuration. Third-party packages (e.g., `Illuminate\...`, `Laravel\...`) remain excluded.
+
+**Compiled Blade views excluded:** `storage/framework/views/*.php` (compiled Blade templates) are detected as generated files.
+
+**Additional excluded path:** `storage/framework/` (compiled views, cache, sessions)
+
+**Blade templates:** `.blade.php` files are analyzed as HTML templates (analysis-only via HTML & Templates support), not as PHP files.
+
 ### Vue
 
 **Hybrid support.** Vue Single File Components (`.vue`) receive a hybrid analysis approach:

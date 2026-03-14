@@ -86,6 +86,7 @@ class DiffguardConfig(BaseModel):
             "tmp/cache/",
             "log/",
             "vendor/",
+            "storage/framework/",
         ],
         description="Patterns identifying third-party code paths (excluded from analysis and symbol resolution)",
     )
