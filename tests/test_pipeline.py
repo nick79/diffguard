@@ -10,7 +10,7 @@ import pytest
 from diffguard.ast.languages import Language
 from diffguard.config import DiffguardConfig
 from diffguard.context import Region
-from diffguard.exclusions import is_generated_file
+from diffguard.exclusions import is_generated_file, is_sensitive_file
 from diffguard.git import DiffFile, DiffHunk
 from diffguard.llm import (
     AnalysisResult,
@@ -643,6 +643,90 @@ class TestVendorPathFiltering:
         result = _filter_analyzable_files(diff_files, _default_config())
         assert len(result) == 1
         assert result[0][0].path == "src/diffguard/pipeline.py"
+
+    def test_log_pattern_does_not_match_blog_directory(self) -> None:
+        diff_files = [_make_diff_file("src/pages/blog/index.astro")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+
+    def test_log_pattern_does_not_match_catalog_directory(self) -> None:
+        diff_files = [_make_diff_file("src/catalog/items.py")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+
+    def test_build_pattern_does_not_match_rebuild_directory(self) -> None:
+        diff_files = [_make_diff_file("src/rebuild/task.js")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+
+    def test_vendor_pattern_matches_at_root(self) -> None:
+        diff_files = [_make_diff_file("log/development.rb")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+    def test_vendor_pattern_matches_nested(self) -> None:
+        diff_files = [_make_diff_file("rails/log/test.rb")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+    def test_build_pattern_matches_at_root(self) -> None:
+        diff_files = [_make_diff_file("build/output.js")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+    def test_build_pattern_matches_nested(self) -> None:
+        diff_files = [_make_diff_file("project/build/output.js")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# TestBracketFilenames
+# ---------------------------------------------------------------------------
+
+
+class TestBracketFilenames:
+    """Files with bracket characters in filenames (dynamic routes) pass through filtering."""
+
+    def test_astro_dynamic_route_not_dropped(self) -> None:
+        diff_files = [_make_diff_file("src/pages/blog/[slug].astro")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+        assert result[0][0].path == "src/pages/blog/[slug].astro"
+        assert result[0][1] == Language.ASTRO
+
+    def test_astro_rest_params_not_dropped(self) -> None:
+        diff_files = [_make_diff_file("src/pages/[...rest].astro")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+
+    def test_astro_optional_params_not_dropped(self) -> None:
+        diff_files = [_make_diff_file("src/pages/[[optional]].astro")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+
+    def test_tsx_dynamic_route_not_dropped(self) -> None:
+        diff_files = [_make_diff_file("src/pages/[id].tsx")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+        assert result[0][1] == Language.TYPESCRIPT
+
+    def test_vue_dynamic_route_not_dropped(self) -> None:
+        diff_files = [_make_diff_file("src/pages/[slug].vue")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+        assert result[0][1] == Language.VUE
+
+    def test_svelte_dynamic_route_not_dropped(self) -> None:
+        diff_files = [_make_diff_file("src/routes/[slug]/+page.svelte")]
+        result = _filter_analyzable_files(diff_files, _default_config())
+        assert len(result) == 1
+        assert result[0][1] == Language.SVELTE
+
+    def test_bracket_filename_not_matched_by_sensitive_patterns(self) -> None:
+        assert is_sensitive_file("src/pages/[slug].astro") is False
+        assert is_sensitive_file("src/pages/[...rest].tsx") is False
+        assert is_sensitive_file("src/pages/[[optional]].vue") is False
 
 
 # ---------------------------------------------------------------------------

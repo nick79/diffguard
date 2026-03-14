@@ -750,6 +750,66 @@ class TestGetBranchName:
         assert get_branch_name() is None
 
 
+class TestBracketFilenames:
+    """Parse diffs with bracket characters in filenames (dynamic routes)."""
+
+    BRACKET_DIFF = """\
+diff --git a/src/pages/blog/[slug].astro b/src/pages/blog/[slug].astro
+index abc1234..def5678 100644
+--- a/src/pages/blog/[slug].astro
++++ b/src/pages/blog/[slug].astro
+@@ -1,4 +1,5 @@
+ ---
+ const { slug } = Astro.params;
++const data = await fetch(slug);
+ ---
+ <h1>Hello</h1>
+"""
+
+    REST_PARAMS_DIFF = """\
+diff --git a/src/pages/[...rest].astro b/src/pages/[...rest].astro
+new file mode 100644
+index 0000000..abc1234
+--- /dev/null
++++ b/src/pages/[...rest].astro
+@@ -0,0 +1,3 @@
++---
++---
++<h1>Catch-all</h1>
+"""
+
+    OPTIONAL_PARAMS_DIFF = """\
+diff --git a/src/pages/[[optional]].astro b/src/pages/[[optional]].astro
+index abc1234..def5678 100644
+--- a/src/pages/[[optional]].astro
++++ b/src/pages/[[optional]].astro
+@@ -1,2 +1,3 @@
+ ---
++const { optional } = Astro.params;
+ ---
+"""
+
+    def test_bracket_filename_parsed_correctly(self) -> None:
+        result = parse_diff(self.BRACKET_DIFF)
+        assert len(result) == 1
+        assert result[0].path == "src/pages/blog/[slug].astro"
+        assert not result[0].is_binary
+        assert not result[0].is_deleted
+        assert len(result[0].hunks) == 1
+
+    def test_rest_params_filename_parsed_correctly(self) -> None:
+        result = parse_diff(self.REST_PARAMS_DIFF)
+        assert len(result) == 1
+        assert result[0].path == "src/pages/[...rest].astro"
+        assert result[0].is_new_file
+
+    def test_optional_params_filename_parsed_correctly(self) -> None:
+        result = parse_diff(self.OPTIONAL_PARAMS_DIFF)
+        assert len(result) == 1
+        assert result[0].path == "src/pages/[[optional]].astro"
+        assert len(result[0].hunks) == 1
+
+
 class TestDiffHunkDataclass:
     """Test DiffHunk dataclass behavior."""
 

@@ -238,8 +238,12 @@ async def analyze_staged_changes(
 
 
 def _is_vendor_path(file_path: str, patterns: list[str]) -> bool:
-    """Check if a file path matches any third-party/vendor path pattern."""
-    return any(pattern in file_path for pattern in patterns)
+    """Check if a file path matches any third-party/vendor path pattern.
+
+    Matches at path segment boundaries only — ``log/`` matches ``log/dev.log``
+    and ``app/log/dev.log`` but NOT ``src/blog/post.astro``.
+    """
+    return any(file_path.startswith(pattern) or f"/{pattern}" in file_path for pattern in patterns)
 
 
 def _read_head(project_root: Path | None, rel_path: str, max_lines: int = 20) -> list[str]:
