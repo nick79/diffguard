@@ -19,6 +19,7 @@ from diffguard.ast import (
     parse_file,
     resolve_symbol_definition,
 )
+from diffguard.ast.svelte import detect_svelte_script_language, extract_svelte_script
 from diffguard.ast.vue import detect_vue_script_language, extract_vue_script
 from diffguard.context import Region, build_file_regions, read_file_lines
 from diffguard.exceptions import ContextError, UnsupportedLanguageError
@@ -342,6 +343,10 @@ def _build_file_context(
         scopes, symbols = _build_vue_context(
             source_lines, diff_lines, regions, config, project_root, file_path, diff_file.is_new_file
         )
+    elif language == Language.SVELTE:
+        scopes, symbols = _build_svelte_context(
+            source_lines, diff_lines, regions, config, project_root, file_path, diff_file.is_new_file
+        )
     else:
         # Parse AST — catch UnsupportedLanguageError so file continues without AST
         tree: Tree | None = None
@@ -386,6 +391,78 @@ def _build_vue_context(
 
     script_content, script_start = script_result
     script_language = detect_vue_script_language(source_text)
+    script_line_count = script_content.count("\n") + 1
+    script_end = script_start + script_line_count - 1
+
+    try:
+        tree = parse_file(script_content, script_language)
+    except UnsupportedLanguageError:
+        tree = None
+
+    if tree is None:
+        return [], {}
+
+    # Filter diff_lines to script range and adjust to script-relative line numbers
+    offset = script_start - 1
+    script_diff_lines: list[DiffLine] = []
+    for dl in diff_lines:
+        if script_start <= dl.line_num <= script_end:
+            script_diff_lines.append(
+                DiffLine(line_num=dl.line_num - offset, change_type=dl.change_type, content=dl.content)
+            )
+
+    script_source_lines = script_content.split("\n")
+
+    # Build scopes with script-relative lines, then adjust back to full-file coordinates
+    raw_scopes = _build_scopes(
+        tree, script_diff_lines, script_language, script_source_lines, config.scope_size_limit, is_new_file
+    )
+    scopes = [
+        ScopeContext(
+            type=sc.type,
+            name=sc.name,
+            start_line=sc.start_line + offset,
+            end_line=sc.end_line + offset,
+            source=sc.source,
+        )
+        for sc in raw_scopes
+    ]
+
+    # Filter regions to script range and adjust to script-relative line numbers
+    script_regions: list[Region] = []
+    for r in regions:
+        if r.end_line >= script_start and r.start_line <= script_end:
+            script_regions.append(
+                Region(
+                    start_line=max(1, r.start_line - offset),
+                    end_line=min(script_line_count, r.end_line - offset),
+                )
+            )
+
+    symbols = _build_symbols(
+        tree, script_regions, script_language, script_source_lines, project_root, file_path, config
+    )
+
+    return scopes, symbols
+
+
+def _build_svelte_context(
+    source_lines: list[str],
+    diff_lines: list[DiffLine],
+    regions: list[Region],
+    config: DiffguardConfig,
+    project_root: Path,
+    file_path: Path,
+    is_new_file: bool,
+) -> tuple[list[ScopeContext], dict[str, SymbolDef]]:
+    """Build scopes and symbols for a Svelte component via its extracted script block."""
+    source_text = "\n".join(source_lines)
+    script_result = extract_svelte_script(source_text)
+    if script_result is None:
+        return [], {}
+
+    script_content, script_start = script_result
+    script_language = detect_svelte_script_language(source_text)
     script_line_count = script_content.count("\n") + 1
     script_end = script_start + script_line_count - 1
 

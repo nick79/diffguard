@@ -15,6 +15,7 @@ class Language(enum.Enum):
     GO = "go"
     PHP = "php"
     VUE = "vue"
+    SVELTE = "svelte"
     HTML = "html"
     CSS = "css"
     MAKEFILE = "makefile"
@@ -36,6 +37,7 @@ _EXTENSION_MAP: dict[str, Language] = {
     ".go": Language.GO,
     ".php": Language.PHP,
     ".vue": Language.VUE,
+    ".svelte": Language.SVELTE,
     ".html": Language.HTML,
     ".htm": Language.HTML,
     ".ejs": Language.HTML,
