@@ -277,6 +277,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | Ruby | `.rb` | Full |
 | Go | `.go` | Full |
 | PHP | `.php` | Full |
+| Elixir | `.ex`, `.exs` | Planned |
 | Vue | `.vue` | Hybrid (script: Full, template: Analysis-only) |
 | Svelte | `.svelte` | Hybrid (script: Full, template: Analysis-only) |
 | Astro | `.astro` | Hybrid (frontmatter: Full, template: Analysis-only) |
