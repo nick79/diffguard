@@ -277,6 +277,7 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | Ruby | `.rb` | Full |
 | Go | `.go` | Full |
 | PHP | `.php` | Full |
+| Vue | `.vue` | Hybrid (script: Full, template: Analysis-only) |
 | HTML & Templates | `.html`, `.htm`, `.ejs`, `.hbs`, `.handlebars`, `.njk`, `.nunjucks`, `.pug`, `.erb`, `.jinja`, `.jinja2`, `.mustache`, `.blade.php` | Analysis-only |
 | CSS & Stylesheets | `.css`, `.scss`, `.sass`, `.less` | Analysis-only |
 | Makefile | `Makefile`, `makefile`, `GNUmakefile`, `.mk` | Analysis-only |
@@ -463,6 +464,22 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 **Module resolution:** Diffguard resolves PHP imports using PSR-4 conventions from `composer.json`:
 - `App\Services\UserService` with `{"App\\": "src/"}` → `src/Services/UserService.php`
 - Also tries `src/`, `app/`, `lib/` directories as fallbacks
+
+### Vue
+
+**Hybrid support.** Vue Single File Components (`.vue`) receive a hybrid analysis approach:
+
+- **`<script>` block → Full AST enrichment.** The script block is extracted, parsed as JavaScript or TypeScript (based on `lang` attribute), and receives full scope detection, import extraction, and symbol resolution. Scope line numbers are mapped back to full-file coordinates so the LLM sees correct positions.
+- **`<template>` block → Analysis-only.** The template markup is included in the expanded region for raw LLM analysis — no template-specific AST parsing.
+- **`<script lang="ts">` → TypeScript parsing.** When the script tag specifies `lang="ts"` or `lang="typescript"`, the block is parsed with the TypeScript grammar.
+- **`<script setup>` → Supported.** Composition API script setup blocks are extracted and parsed normally.
+
+**Key XSS surfaces detected by the LLM:**
+- `v-html="userInput"` — raw HTML rendering (bypasses Vue's default escaping)
+- Dynamic `:is` with user-controlled values — component injection
+- Unescaped slot content in SSR contexts
+
+**Generated file detection:** Minified Vue SFCs (average line length > 500 characters) are automatically excluded from analysis.
 
 ### HTML & Templates
 

@@ -242,6 +242,8 @@ def is_generated_file(file_path: str, source_lines: list[str], language: Languag
             return _is_generated_go(file_path, source_lines)
         case Language.PHP:
             return _is_generated_php(file_path, source_lines)
+        case Language.VUE:
+            return _is_generated_vue(source_lines)
         case Language.HTML:
             return _is_generated_html(source_lines)
         case _:
@@ -404,6 +406,16 @@ def _is_generated_php(file_path: str, source_lines: list[str]) -> bool:
 
 def _is_generated_html(source_lines: list[str]) -> bool:
     """Check if an HTML/template file is minified."""
+    if source_lines:
+        total_chars = sum(len(line) for line in source_lines)
+        avg_length = total_chars / len(source_lines)
+        if avg_length > 500:
+            return True
+    return False
+
+
+def _is_generated_vue(source_lines: list[str]) -> bool:
+    """Check if a Vue SFC is minified."""
     if source_lines:
         total_chars = sum(len(line) for line in source_lines)
         avg_length = total_chars / len(source_lines)

@@ -14,6 +14,7 @@ class Language(enum.Enum):
     RUBY = "ruby"
     GO = "go"
     PHP = "php"
+    VUE = "vue"
     HTML = "html"
     CSS = "css"
     MAKEFILE = "makefile"
@@ -34,6 +35,7 @@ _EXTENSION_MAP: dict[str, Language] = {
     ".rb": Language.RUBY,
     ".go": Language.GO,
     ".php": Language.PHP,
+    ".vue": Language.VUE,
     ".html": Language.HTML,
     ".htm": Language.HTML,
     ".ejs": Language.HTML,
