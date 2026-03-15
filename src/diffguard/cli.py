@@ -92,10 +92,12 @@ def _error_to_dict(error: FileAnalysisError) -> dict[str, str]:
     }
 
 
-def _serialize_dry_run(token_estimates: list[tuple[str, int]], total: int) -> dict[str, Any]:
+def _serialize_dry_run(token_estimates: list[tuple[str, int]], total: int, *, staged_files: int = 0) -> dict[str, Any]:
     """Serialize dry-run token estimates to a JSON-compatible dict."""
     return {
         "dry_run": True,
+        "staged_files": staged_files,
+        "analyzed_files": len(token_estimates),
         "files": [{"path": path, "estimated_tokens": tokens} for path, tokens in token_estimates],
         "total_estimated_tokens": total,
     }
@@ -198,9 +200,10 @@ def _print_results(
     blocking: bool,
     suppressed_count: int = 0,
     elapsed: float | None = None,
+    staged_files: int = 0,
 ) -> None:
     """Print analysis results to the terminal using rich formatting."""
-    stats = build_stats(result.findings, files_analyzed, suppressed_count=suppressed_count)
+    stats = build_stats(result.findings, files_analyzed, suppressed_count=suppressed_count, staged_files=staged_files)
 
     if result.findings:
         finding_ids = _build_finding_ids(result.findings)
@@ -237,6 +240,7 @@ def _route_output(
             blocking=blocking,
             suppressed_count=suppressed_count,
             elapsed=elapsed,
+            staged_files=metadata.staged_files,
         )
         if blocking:
             raise typer.Exit(code=1)
@@ -258,6 +262,7 @@ def _route_output(
                 blocking=blocking,
                 suppressed_count=suppressed_count,
                 elapsed=elapsed,
+                staged_files=metadata.staged_files,
             )
             console.print(f"Report saved to {output}")
     if blocking:
@@ -267,6 +272,7 @@ def _route_output(
 def _handle_dry_run(
     prepared: PreparedContext,
     *,
+    staged_files: int,
     verbose: bool,
     json_output: bool,
     output: Path | None,
@@ -274,9 +280,10 @@ def _handle_dry_run(
     """Handle the --dry-run flow with token estimates."""
     token_estimates = _compute_token_estimates(prepared)
     total_tokens = sum(t for _, t in token_estimates)
+    analyzed = len(prepared.code_contexts)
 
     if json_output or output:
-        data = _serialize_dry_run(token_estimates, total_tokens)
+        data = _serialize_dry_run(token_estimates, total_tokens, staged_files=staged_files)
         if json_output:
             typer.echo(json.dumps(data, indent=2))
         if output:
@@ -285,7 +292,7 @@ def _handle_dry_run(
                 typer.echo(f"Report saved to {output}")
         raise typer.Exit(code=0)
 
-    typer.echo(f"Would analyze {len(prepared.code_contexts)} file(s):")
+    typer.echo(f"Staged {staged_files} file(s), would analyze {analyzed} file(s):")
     for i, _ctx in enumerate(prepared.code_contexts):
         file_path, tokens = token_estimates[i]
         if verbose:
@@ -410,18 +417,18 @@ async def _run_default_analysis(
     client: OpenAIClient,
     console: Console,
     *,
+    analyzed_count: int,
     json_output: bool,
 ) -> tuple[AnalysisResult, int, float]:
     """Run analysis in default (non-verbose) mode with progress bar."""
     start = time.monotonic()
-    total_files = len(diff_files)
     if not json_output:
-        with AnalysisProgress(console, total_files) as progress:
+        with AnalysisProgress(console, analyzed_count) as progress:
             result = await analyze_staged_changes(diff_files, config, client, on_progress=progress.update)
     else:
         result = await analyze_staged_changes(diff_files, config, client)
     elapsed = time.monotonic() - start
-    return result, total_files, elapsed
+    return result, analyzed_count, elapsed
 
 
 async def _run(
@@ -453,11 +460,11 @@ async def _run(
     # Suppress rich output when --json is active
     console = Console(stderr=json_output)
 
-    if dry_run or verbose:
-        prepared = prepare_file_contexts(diff_files, config)
+    prepared = prepare_file_contexts(diff_files, config)
+    staged_files = len(diff_files)
 
     if dry_run:
-        _handle_dry_run(prepared, verbose=verbose, json_output=json_output, output=output)
+        _handle_dry_run(prepared, staged_files=staged_files, verbose=verbose, json_output=json_output, output=output)
         return  # _handle_dry_run raises typer.Exit, but guard return for clarity
 
     client = OpenAIClient(model=config.model, timeout=config.timeout, temperature=config.temperature)
@@ -469,7 +476,12 @@ async def _run(
             )
         else:
             result, files_analyzed, elapsed = await _run_default_analysis(
-                diff_files, config, client, console, json_output=json_output
+                diff_files,
+                config,
+                client,
+                console,
+                analyzed_count=len(prepared.code_contexts),
+                json_output=json_output,
             )
     except DiffguardError as exc:
         typer.echo(f"Error: {exc}", err=True)
@@ -499,6 +511,7 @@ async def _run(
         commit_hash=get_commit_hash(),
         branch_name=get_branch_name(),
         suppressed_count=suppressed_count,
+        staged_files=staged_files,
     )
 
     _route_output(

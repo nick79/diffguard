@@ -22,6 +22,7 @@ class ReportMetadata:
     commit_hash: str | None = None
     branch_name: str | None = None
     suppressed_count: int = 0
+    staged_files: int = 0
 
 
 def _serialize_finding(finding: Finding) -> dict[str, Any]:
@@ -54,7 +55,11 @@ def _build_summary(findings: list[Finding]) -> dict[str, int]:
 
 def _build_metadata_dict(metadata: ReportMetadata) -> dict[str, Any]:
     """Build metadata dict, omitting None values."""
-    d: dict[str, Any] = {"files_analyzed": metadata.files_analyzed}
+    d: dict[str, Any] = {
+        "staged_files": metadata.staged_files,
+        "analyzed_files": metadata.files_analyzed,
+        "files_analyzed": metadata.files_analyzed,
+    }
     if metadata.analysis_time_seconds is not None:
         d["analysis_time_seconds"] = metadata.analysis_time_seconds
     if metadata.commit_hash is not None:

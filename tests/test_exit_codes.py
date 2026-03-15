@@ -11,7 +11,8 @@ from diffguard.cli import app
 from diffguard.config import DEFAULT_THRESHOLDS, DiffguardConfig, ThresholdAction
 from diffguard.exceptions import ConfigError, GitError, LLMServerError, LLMTimeoutError
 from diffguard.git import DiffFile, DiffHunk
-from diffguard.llm import AnalysisResult, ConfidenceLevel, Finding, SeverityLevel
+from diffguard.llm import AnalysisResult, CodeContext, ConfidenceLevel, DiffLine, Finding, SeverityLevel
+from diffguard.pipeline import PreparedContext
 from diffguard.severity import should_block
 
 runner = CliRunner()
@@ -50,6 +51,17 @@ def _make_finding(
     )
 
 
+def _make_prepared_context() -> PreparedContext:
+    """Create a minimal PreparedContext for tests that mock prepare_file_contexts."""
+    cc = CodeContext(
+        file_path="test.py",
+        diff_lines=[DiffLine(line_num=1, change_type="+", content="print('hello')")],
+        expanded_region="print('hello')",
+        region_start_line=1,
+    )
+    return PreparedContext(code_contexts=[cc])
+
+
 def _patch_full_pipeline(
     findings: list[Finding] | None = None,
     config: DiffguardConfig | None = None,
@@ -64,6 +76,7 @@ def _patch_full_pipeline(
         patch("diffguard.cli.load_config", return_value=config),
         patch("diffguard.cli.get_staged_diff", return_value="diff --git a/test.py b/test.py\n"),
         patch("diffguard.cli.parse_diff", return_value=[_make_diff_file()]),
+        patch("diffguard.cli.prepare_file_contexts", return_value=_make_prepared_context()),
         patch("diffguard.cli.OpenAIClient"),
         patch(
             "diffguard.cli.analyze_staged_changes",
@@ -181,6 +194,7 @@ class TestExitTwoErrors:
 
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch(
         "diffguard.cli.analyze_staged_changes",
         new_callable=AsyncMock,
@@ -200,15 +214,18 @@ class TestExitTwoErrors:
         mock_parse: MagicMock,
         _mock_client: MagicMock,
         _mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared_context()
         result = runner.invoke(app)
         assert result.exit_code == 2
 
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch(
         "diffguard.cli.analyze_staged_changes",
         new_callable=AsyncMock,
@@ -228,10 +245,12 @@ class TestExitTwoErrors:
         mock_parse: MagicMock,
         _mock_client: MagicMock,
         _mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared_context()
         result = runner.invoke(app)
         assert result.exit_code == 2
 

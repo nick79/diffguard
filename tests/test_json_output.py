@@ -121,6 +121,13 @@ class TestGenerateReport:
         assert "commit_hash" not in report["metadata"]
         assert "branch_name" not in report["metadata"]
 
+    def test_metadata_includes_staged_and_analyzed(self) -> None:
+        meta = _make_metadata(staged_files=17)
+        report = generate_report([], meta)
+        assert report["metadata"]["staged_files"] == 17
+        assert report["metadata"]["analyzed_files"] == 5
+        assert report["metadata"]["files_analyzed"] == 5
+
 
 class TestWriteReport:
     def test_creates_file(self, tmp_path: Path) -> None:

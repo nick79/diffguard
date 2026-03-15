@@ -349,6 +349,64 @@ class TestPrintSummary:
         assert "0 issue" in text
 
 
+class TestStagedVsAnalyzedCounts:
+    def test_summary_shows_both_counts_when_different(self) -> None:
+        console, output = _make_console()
+        stats = AnalysisStats(files_analyzed=11, findings_count=3, staged_files=17, severity_counts={})
+        print_summary(stats, console)
+        text = _strip_ansi(output.getvalue())
+        assert "Staged 17 file(s)" in text
+        assert "analyzed 11 file(s)" in text
+        assert "3 issue(s)" in text
+
+    def test_summary_omits_staged_when_equal(self) -> None:
+        console, output = _make_console()
+        stats = AnalysisStats(files_analyzed=5, findings_count=2, staged_files=5, severity_counts={})
+        print_summary(stats, console)
+        text = _strip_ansi(output.getvalue())
+        assert "Staged" not in text
+        assert "Analyzed 5 file(s)" in text
+
+    def test_summary_omits_staged_when_zero(self) -> None:
+        console, output = _make_console()
+        stats = AnalysisStats(files_analyzed=5, findings_count=1, staged_files=0, severity_counts={})
+        print_summary(stats, console)
+        text = _strip_ansi(output.getvalue())
+        assert "Staged" not in text
+        assert "Analyzed 5 file(s)" in text
+
+    def test_no_findings_shows_both_counts_when_different(self) -> None:
+        console, output = _make_console()
+        stats = AnalysisStats(files_analyzed=11, findings_count=0, staged_files=17)
+        print_no_findings(stats, console)
+        text = _strip_ansi(output.getvalue())
+        assert "Staged 17 file(s)" in text
+        assert "analyzed 11 file(s)" in text
+        assert "No security issues found" in text
+
+    def test_no_findings_omits_staged_when_equal(self) -> None:
+        console, output = _make_console()
+        stats = AnalysisStats(files_analyzed=5, findings_count=0, staged_files=5)
+        print_no_findings(stats, console)
+        text = _strip_ansi(output.getvalue())
+        assert "Staged" not in text
+        assert "Analyzed 5 file(s)" in text
+
+    def test_all_excluded_shows_zero_analyzed(self) -> None:
+        console, output = _make_console()
+        stats = AnalysisStats(files_analyzed=0, findings_count=0, staged_files=3)
+        print_summary(stats, console)
+        text = _strip_ansi(output.getvalue())
+        assert "Staged 3 file(s)" in text
+        assert "analyzed 0 file(s)" in text
+        assert "0 issue(s)" in text
+
+    def test_build_stats_accepts_staged_files(self) -> None:
+        stats = build_stats([], files_analyzed=5, staged_files=10)
+        assert stats.staged_files == 10
+        assert stats.files_analyzed == 5
+
+
 class TestProgressSpinner:
     def test_returns_status_context_manager(self) -> None:
         console, _ = _make_console()

@@ -74,6 +74,7 @@ class AnalysisStats:
     findings_count: int
     severity_counts: dict[SeverityLevel, int] = field(default_factory=dict)
     suppressed_count: int = 0
+    staged_files: int = 0
 
 
 class AnalysisProgress:
@@ -174,7 +175,13 @@ def shorten_path(path: str, max_len: int) -> str:
     return f".../{parts[-1]}"
 
 
-def build_stats(findings: list[Finding], files_analyzed: int, *, suppressed_count: int = 0) -> AnalysisStats:
+def build_stats(
+    findings: list[Finding],
+    files_analyzed: int,
+    *,
+    suppressed_count: int = 0,
+    staged_files: int = 0,
+) -> AnalysisStats:
     """Create AnalysisStats from a findings list."""
     severity_counts: dict[SeverityLevel, int] = defaultdict(int)
     for finding in findings:
@@ -184,6 +191,7 @@ def build_stats(findings: list[Finding], files_analyzed: int, *, suppressed_coun
         findings_count=len(findings),
         severity_counts=dict(severity_counts),
         suppressed_count=suppressed_count,
+        staged_files=staged_files,
     )
 
 
@@ -263,16 +271,21 @@ def print_findings_grouped(
             print_finding_detail(finding, console, finding_id=ids.get(finding))
 
 
+def _staged_prefix(stats: AnalysisStats) -> str:
+    """Build the 'Staged N file(s), analyzed M file(s)' prefix."""
+    if stats.staged_files > 0 and stats.staged_files != stats.files_analyzed:
+        return f"Staged {stats.staged_files} file(s), analyzed {stats.files_analyzed} file(s)"
+    return f"Analyzed {stats.files_analyzed} file(s)"
+
+
 def print_no_findings(stats: AnalysisStats, console: Console, *, elapsed: float | None = None) -> None:
     """Print a success message when no findings exist."""
     suffix = ""
     if stats.suppressed_count > 0:
         suffix = f" ({stats.suppressed_count} suppressed)"
     elapsed_part = f" in {elapsed:.1f}s" if elapsed is not None else ""
-    console.print(
-        f"[green]\u2714 Analyzed {stats.files_analyzed} file(s){elapsed_part}"
-        f" \u2014 No security issues found{suffix}[/green]"
-    )
+    prefix = _staged_prefix(stats)
+    console.print(f"[green]\u2714 {prefix}{elapsed_part} \u2014 No security issues found{suffix}[/green]")
 
 
 def print_summary(stats: AnalysisStats, console: Console, *, elapsed: float | None = None) -> None:
@@ -281,10 +294,8 @@ def print_summary(stats: AnalysisStats, console: Console, *, elapsed: float | No
     if stats.suppressed_count > 0:
         suppressed_suffix = f" ({stats.suppressed_count} suppressed)"
     elapsed_part = f" in {elapsed:.1f}s" if elapsed is not None else ""
-    console.print(
-        f"Analyzed {stats.files_analyzed} file(s){elapsed_part},"
-        f" found {stats.findings_count} issue(s){suppressed_suffix}"
-    )
+    prefix = _staged_prefix(stats)
+    console.print(f"{prefix}{elapsed_part}, found {stats.findings_count} issue(s){suppressed_suffix}")
 
     parts: list[str] = []
     for severity in _SEVERITY_ORDER:

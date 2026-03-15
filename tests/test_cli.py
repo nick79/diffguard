@@ -14,7 +14,8 @@ from diffguard.cli import app
 from diffguard.config import DiffguardConfig
 from diffguard.exceptions import BaselineError, ConfigError, GitError
 from diffguard.git import DiffFile, DiffHunk
-from diffguard.llm import AnalysisResult, ConfidenceLevel, Finding, SeverityLevel
+from diffguard.llm import AnalysisResult, CodeContext, ConfidenceLevel, DiffLine, Finding, SeverityLevel
+from diffguard.pipeline import PreparedContext
 
 runner = CliRunner()
 
@@ -48,6 +49,17 @@ def _make_finding() -> Finding:
         file_path="test.py",
         line_range=(1, 3),
     )
+
+
+def _make_prepared_context() -> PreparedContext:
+    """Create a minimal PreparedContext for tests that mock prepare_file_contexts."""
+    cc = CodeContext(
+        file_path="test.py",
+        diff_lines=[DiffLine(line_num=1, change_type="+", content="print('hello')")],
+        expanded_region="print('hello')",
+        region_start_line=1,
+    )
+    return PreparedContext(code_contexts=[cc])
 
 
 class TestCLIHelp:
@@ -136,6 +148,7 @@ class TestNoStagedChanges:
 class TestAsyncEntryPoint:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -151,6 +164,7 @@ class TestAsyncEntryPoint:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
     ) -> None:
@@ -158,6 +172,7 @@ class TestAsyncEntryPoint:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult()
 
         result = runner.invoke(app)
@@ -167,6 +182,7 @@ class TestAsyncEntryPoint:
 
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -182,6 +198,7 @@ class TestAsyncEntryPoint:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
     ) -> None:
@@ -189,6 +206,7 @@ class TestAsyncEntryPoint:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
 
         result = runner.invoke(app)
@@ -198,6 +216,7 @@ class TestAsyncEntryPoint:
 
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -213,6 +232,7 @@ class TestAsyncEntryPoint:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
     ) -> None:
@@ -220,6 +240,7 @@ class TestAsyncEntryPoint:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult()
 
         result = runner.invoke(app)
@@ -370,6 +391,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -385,6 +407,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -393,6 +416,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
         mock_load_baseline.return_value = []
 
@@ -403,6 +427,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -418,6 +443,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -426,6 +452,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
         mock_load_baseline.return_value = []
 
@@ -436,6 +463,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -451,6 +479,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -459,6 +488,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
         mock_load_baseline.return_value = [_make_baseline_entry()]
 
@@ -470,6 +500,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -485,6 +516,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -502,6 +534,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[critical_finding])
         mock_load_baseline.return_value = [
             _make_baseline_entry(finding_id="cwe94-d49362e006e17e7c", cwe_id="CWE-94"),
@@ -514,6 +547,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -529,6 +563,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -547,6 +582,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[sql_finding, xss_finding])
         mock_load_baseline.return_value = [_make_baseline_entry()]
 
@@ -558,6 +594,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -573,6 +610,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -590,6 +628,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(), xss_finding])
         mock_load_baseline.return_value = [_make_baseline_entry()]
 
@@ -600,6 +639,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -615,6 +655,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -623,6 +664,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
         mock_load_baseline.return_value = []
 
@@ -634,6 +676,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -649,6 +692,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -666,6 +710,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(), xss_finding])
         mock_load_baseline.return_value = [_make_baseline_entry()]
 
@@ -678,6 +723,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -693,6 +739,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -701,6 +748,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
         mock_load_baseline.side_effect = BaselineError("Invalid JSON")
 
@@ -713,6 +761,7 @@ class TestBaselineIntegration:
     @patch("diffguard.cli.get_branch_name", return_value="main")
     @patch("diffguard.cli.get_commit_hash", return_value="abc123")
     @patch("diffguard.cli.load_baseline")
+    @patch("diffguard.cli.prepare_file_contexts")
     @patch("diffguard.cli.analyze_staged_changes", new_callable=AsyncMock)
     @patch("diffguard.cli.OpenAIClient")
     @patch("diffguard.cli.parse_diff")
@@ -728,6 +777,7 @@ class TestBaselineIntegration:
         mock_parse: MagicMock,
         mock_client_cls: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         mock_load_baseline: MagicMock,
         _mock_commit: MagicMock,
         _mock_branch: MagicMock,
@@ -736,6 +786,7 @@ class TestBaselineIntegration:
         mock_diff.return_value = "diff --git a/test.py b/test.py\n"
         mock_parse.return_value = [_make_diff_file()]
         mock_client_cls.return_value = MagicMock()
+        mock_prepare.return_value = _make_prepared_context()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding()])
         mock_load_baseline.return_value = [_make_baseline_entry()]
 

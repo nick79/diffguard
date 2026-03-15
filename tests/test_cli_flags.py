@@ -358,6 +358,7 @@ class TestDryRunEnhanced:
 class TestJsonFlag:
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -373,10 +374,12 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.LOW)])
 
         result = runner.invoke(app, ["--json"])
@@ -393,6 +396,7 @@ class TestJsonFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -408,10 +412,12 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult()
 
         result = runner.invoke(app, ["--json"])
@@ -422,6 +428,7 @@ class TestJsonFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -437,10 +444,12 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult()
 
         result = runner.invoke(app, ["--json"])
@@ -452,6 +461,7 @@ class TestJsonFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -467,10 +477,12 @@ class TestJsonFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.CRITICAL)])
 
         result = runner.invoke(app, ["--json"])
@@ -483,6 +495,7 @@ class TestJsonFlag:
 class TestOutputFlag:
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -498,11 +511,13 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.LOW)])
         out_file = tmp_path / "report.json"
 
@@ -513,6 +528,7 @@ class TestOutputFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -528,11 +544,13 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.LOW)])
         out_file = tmp_path / "report.json"
 
@@ -545,6 +563,7 @@ class TestOutputFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -560,11 +579,13 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult()
         out_file = tmp_path / "report.json"
         out_file.write_text("old content")
@@ -576,6 +597,7 @@ class TestOutputFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -591,11 +613,13 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult()
         out_file = tmp_path / "nested" / "dir" / "report.json"
 
@@ -606,6 +630,7 @@ class TestOutputFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -621,11 +646,13 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult()
         readonly_dir = tmp_path / "readonly"
         readonly_dir.mkdir()
@@ -640,6 +667,7 @@ class TestOutputFlag:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -655,11 +683,13 @@ class TestOutputFlag:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.LOW)])
         out_file = tmp_path / "report.json"
 
@@ -730,6 +760,7 @@ class TestCombinedFlags:
 
     @patch(_BRANCH, return_value="main")
     @patch(_COMMIT, return_value="abc123")
+    @patch(_PREPARE)
     @patch(_ANALYZE, new_callable=AsyncMock)
     @patch(_CLIENT)
     @patch(_PARSE)
@@ -745,11 +776,13 @@ class TestCombinedFlags:
         mock_parse: MagicMock,
         _client: MagicMock,
         mock_analyze: AsyncMock,
+        mock_prepare: MagicMock,
         _commit: MagicMock,
         _branch: MagicMock,
         tmp_path: Path,
     ) -> None:
         mock_parse.return_value = [_make_diff_file()]
+        mock_prepare.return_value = _make_prepared()
         mock_analyze.return_value = AnalysisResult(findings=[_make_finding(SeverityLevel.LOW)])
         out_file = tmp_path / "report.json"
 
