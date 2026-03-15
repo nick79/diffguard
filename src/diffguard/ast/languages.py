@@ -17,6 +17,7 @@ class Language(enum.Enum):
     VUE = "vue"
     SVELTE = "svelte"
     ASTRO = "astro"
+    ELIXIR = "elixir"
     HTML = "html"
     CSS = "css"
     MAKEFILE = "makefile"
@@ -37,6 +38,8 @@ _EXTENSION_MAP: dict[str, Language] = {
     ".rb": Language.RUBY,
     ".go": Language.GO,
     ".php": Language.PHP,
+    ".ex": Language.ELIXIR,
+    ".exs": Language.ELIXIR,
     ".vue": Language.VUE,
     ".svelte": Language.SVELTE,
     ".astro": Language.ASTRO,

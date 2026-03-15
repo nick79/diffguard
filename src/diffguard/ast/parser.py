@@ -48,6 +48,10 @@ def _load_language(language: Language) -> TSLanguage:  # noqa: PLR0911
             import tree_sitter_php  # noqa: PLC0415
 
             return TSLanguage(tree_sitter_php.language_php())
+        case Language.ELIXIR:
+            import tree_sitter_elixir  # noqa: PLC0415
+
+            return TSLanguage(tree_sitter_elixir.language())
         case _:
             raise UnsupportedLanguageError(f"No tree-sitter grammar installed for {language.value}")
 

@@ -14,7 +14,7 @@
 # symbol_resolution_depth = 1
 
 # Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
-# third_party_patterns = ["venv/", ".venv/", "site-packages/", "staticfiles/", ".tox/", "htmlcov/", "node_modules/", "bower_components/", "target/", "build/", ".gradle/", "vendor/bundle/", "vendor/ruby/", ".bundle/", "tmp/cache/", "log/", "vendor/", "storage/framework/", "wp-includes/", "wp-admin/", "wp-content/cache/", "wp-content/uploads/", "wp-content/upgrade/"]
+# third_party_patterns = ["venv/", ".venv/", "site-packages/", "staticfiles/", ".tox/", "htmlcov/", "node_modules/", "bower_components/", "target/", "build/", ".gradle/", "vendor/bundle/", "vendor/ruby/", ".bundle/", "tmp/cache/", "log/", "vendor/", "storage/framework/", "wp-includes/", "wp-admin/", "wp-content/cache/", "wp-content/uploads/", "wp-content/upgrade/", "deps/", "_build/"]
 
 # LLM sampling temperature (0 = deterministic, higher = more creative)
 # temperature = 0.0
