@@ -120,8 +120,13 @@ _FOOTER = "Analyze the above code changes for security vulnerabilities."
 
 
 def estimate_tokens(text: str) -> int:
-    """Estimate token count using a ~4 characters per token heuristic."""
-    return len(text) // 4
+    """Estimate token count using tiktoken.
+
+    Delegates to ``tokens.estimate_tokens`` with the default model.
+    """
+    from diffguard.llm.tokens import estimate_tokens as _estimate  # noqa: PLC0415
+
+    return _estimate(text)
 
 
 def build_user_prompt(

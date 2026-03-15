@@ -23,6 +23,10 @@ from diffguard.llm.response import (
     SeverityLevel,
     parse_llm_response,
 )
+from diffguard.llm.tokens import (
+    check_cost_limit,
+    estimate_cost,
+)
 
 __all__ = [
     "SYSTEM_PROMPT",
@@ -40,6 +44,8 @@ __all__ = [
     "analyze_file",
     "analyze_files",
     "build_user_prompt",
+    "check_cost_limit",
+    "estimate_cost",
     "estimate_tokens",
     "parse_llm_response",
 ]

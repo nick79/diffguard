@@ -19,7 +19,7 @@ from diffguard.baseline_cli import baseline_app
 from diffguard.config import DiffguardConfig, load_config
 from diffguard.exceptions import BaselineError, ConfigError, DiffguardError, GitError, ReportWriteError
 from diffguard.git import get_branch_name, get_commit_hash, get_staged_diff, is_git_repo, parse_diff
-from diffguard.llm import AnalysisResult, OpenAIClient, build_user_prompt, estimate_tokens
+from diffguard.llm import SYSTEM_PROMPT, AnalysisResult, OpenAIClient, build_user_prompt, estimate_tokens
 from diffguard.llm.analyzer import FileAnalysisError, analyze_files
 from diffguard.llm.response import Finding  # noqa: TC001
 from diffguard.output.json_report import ReportMetadata, generate_report, print_report, write_report
@@ -109,11 +109,16 @@ def _write_json_file(data: dict[str, Any], path: Path) -> None:
 
 
 def _compute_token_estimates(prepared: PreparedContext) -> list[tuple[str, int]]:
-    """Compute per-file token estimates from prepared contexts."""
+    """Compute per-file token estimates from prepared contexts.
+
+    Each file estimate includes the system prompt overhead so the total
+    reflects actual API usage.
+    """
+    system_tokens = estimate_tokens(SYSTEM_PROMPT)
     estimates: list[tuple[str, int]] = []
     for ctx in prepared.code_contexts:
         prompt = build_user_prompt(ctx)
-        tokens = estimate_tokens(prompt)
+        tokens = estimate_tokens(prompt) + system_tokens
         estimates.append((ctx.file_path, tokens))
     return estimates
 
