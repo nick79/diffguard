@@ -117,7 +117,7 @@ temperature = 0.0  # default
 min_confidence = "Low"  # default (keep all findings)
 
 # Maximum total tokens per scan (0 = unlimited)
-max_tokens_per_scan = 40000  # default
+max_tokens_per_scan = 0  # default (unlimited)
 
 # Maximum concurrent API calls
 max_concurrent_api_calls = 5  # default

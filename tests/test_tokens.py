@@ -126,7 +126,7 @@ class TestConfigMaxTokens:
 
     def test_default_max_tokens_per_scan(self) -> None:
         config = DiffguardConfig()
-        assert config.max_tokens_per_scan == 40_000
+        assert config.max_tokens_per_scan == 0
 
     def test_zero_means_unlimited(self) -> None:
         config = DiffguardConfig(max_tokens_per_scan=0)

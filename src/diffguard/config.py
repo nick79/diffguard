@@ -118,7 +118,7 @@ class DiffguardConfig(BaseModel):
         description="Minimum confidence level for findings (Low, Medium, High). "
         "Set to Medium to filter out borderline findings and improve run-to-run consistency.",
     )
-    max_tokens_per_scan: int = Field(default=40_000, ge=0, description="Maximum total tokens per scan (0 = unlimited)")
+    max_tokens_per_scan: int = Field(default=0, ge=0, description="Maximum total tokens per scan (0 = unlimited)")
     max_concurrent_api_calls: int = Field(default=5, ge=1, description="Maximum concurrent API calls")
     timeout: int = Field(default=120, ge=1, description="API timeout in seconds")
     fail_on_error: bool = Field(
