@@ -359,27 +359,38 @@ class TestPartialFailures:
 
 class TestProgressCallback:
     async def test_callback_called_after_each_file(self, mock_client: AsyncMock) -> None:
-        progress_calls: list[tuple[int, int]] = []
+        progress_calls: list[tuple[str, int, int]] = []
 
-        def on_progress(completed: int, total: int) -> None:
-            progress_calls.append((completed, total))
+        def on_progress(file_path: str, completed: int, total: int) -> None:
+            progress_calls.append((file_path, completed, total))
 
         await analyze_files(_make_contexts(3), mock_client, on_progress=on_progress)
 
         assert len(progress_calls) == 3
-        assert all(total == 3 for _, total in progress_calls)
-        completed_values = sorted(c for c, _ in progress_calls)
+        assert all(total == 3 for _, _, total in progress_calls)
+        completed_values = sorted(c for _, c, _ in progress_calls)
         assert completed_values == [1, 2, 3]
+
+    async def test_callback_includes_file_path(self, mock_client: AsyncMock) -> None:
+        progress_calls: list[tuple[str, int, int]] = []
+
+        def on_progress(file_path: str, completed: int, total: int) -> None:
+            progress_calls.append((file_path, completed, total))
+
+        await analyze_files(_make_contexts(2), mock_client, on_progress=on_progress)
+
+        file_paths = sorted(fp for fp, _, _ in progress_calls)
+        assert file_paths == ["src/file0.py", "src/file1.py"]
 
     async def test_callback_called_on_error(self) -> None:
         client = AsyncMock()
         client.analyze.side_effect = LLMTimeoutError("Timeout")
-        progress_calls: list[tuple[int, int]] = []
+        progress_calls: list[tuple[str, int, int]] = []
 
         await analyze_files(
             _make_contexts(2),
             client,
-            on_progress=lambda c, t: progress_calls.append((c, t)),
+            on_progress=lambda fp, c, t: progress_calls.append((fp, c, t)),
         )
 
         assert len(progress_calls) == 2

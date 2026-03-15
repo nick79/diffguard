@@ -103,7 +103,7 @@ async def analyze_files(
     max_concurrent: int = 5,
     max_retries: int = 0,
     timeout_per_file: float | None = None,
-    on_progress: Callable[[int, int], None] | None = None,
+    on_progress: Callable[[str, int, int], None] | None = None,
 ) -> AnalysisResult:
     """Analyze multiple files concurrently for security vulnerabilities.
 
@@ -116,7 +116,7 @@ async def analyze_files(
         max_concurrent: Maximum number of concurrent API calls.
         max_retries: Number of retries per file for transient errors.
         timeout_per_file: Optional per-file timeout in seconds.
-        on_progress: Optional callback called with (completed, total) after each file.
+        on_progress: Optional callback called with (file_path, completed, total) after each file.
 
     Returns:
         AnalysisResult containing combined findings and any errors.
@@ -156,7 +156,7 @@ async def analyze_files(
 
         completed += 1
         if on_progress is not None:
-            on_progress(completed, total)
+            on_progress(context.file_path, completed, total)
         return result
 
     tasks = [_analyze_one(ctx) for ctx in contexts]

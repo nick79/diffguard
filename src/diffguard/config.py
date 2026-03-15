@@ -121,6 +121,11 @@ class DiffguardConfig(BaseModel):
     max_tokens_per_scan: int = Field(default=40_000, ge=0, description="Maximum total tokens per scan (0 = unlimited)")
     max_concurrent_api_calls: int = Field(default=5, ge=1, description="Maximum concurrent API calls")
     timeout: int = Field(default=120, ge=1, description="API timeout in seconds")
+    fail_on_error: bool = Field(
+        default=True,
+        description="Abort on LLM errors in non-interactive (piped) mode. "
+        "Set to false to skip failed files and continue.",
+    )
 
     # Baseline
     baseline_path: str = Field(

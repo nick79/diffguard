@@ -7,10 +7,14 @@ from diffguard.output.json_report import (
     write_report,
 )
 from diffguard.output.terminal import (
+    AnalysisProgress,
     AnalysisStats,
     build_stats,
     create_progress_spinner,
+    format_file_done,
+    format_file_error,
     format_line_range,
+    friendly_error_message,
     print_finding_detail,
     print_findings,
     print_findings_grouped,
@@ -21,11 +25,15 @@ from diffguard.output.terminal import (
 )
 
 __all__ = [
+    "AnalysisProgress",
     "AnalysisStats",
     "ReportMetadata",
     "build_stats",
     "create_progress_spinner",
+    "format_file_done",
+    "format_file_error",
     "format_line_range",
+    "friendly_error_message",
     "generate_report",
     "print_finding_detail",
     "print_findings",

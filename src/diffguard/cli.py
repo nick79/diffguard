@@ -5,6 +5,7 @@ import contextlib
 import hashlib
 import json
 import os
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,14 +19,17 @@ from diffguard.baseline import BaselineEntry, filter_suppressed, get_suppressed,
 from diffguard.baseline_cli import baseline_app
 from diffguard.config import DiffguardConfig, load_config
 from diffguard.exceptions import BaselineError, ConfigError, DiffguardError, GitError, ReportWriteError
-from diffguard.git import get_branch_name, get_commit_hash, get_staged_diff, is_git_repo, parse_diff
+from diffguard.git import DiffFile, get_branch_name, get_commit_hash, get_staged_diff, is_git_repo, parse_diff
 from diffguard.llm import SYSTEM_PROMPT, AnalysisResult, OpenAIClient, build_user_prompt, estimate_tokens
 from diffguard.llm.analyzer import FileAnalysisError, analyze_files
 from diffguard.llm.response import Finding  # noqa: TC001
 from diffguard.output.json_report import ReportMetadata, generate_report, print_report, write_report
 from diffguard.output.terminal import (
+    AnalysisProgress,
     build_stats,
-    create_progress_spinner,
+    format_file_done,
+    format_file_error,
+    friendly_error_message,
     print_findings_grouped,
     print_no_findings,
     print_summary,
@@ -51,8 +55,7 @@ def _version_callback(value: bool) -> None:
 def _validate_git_repo() -> None:
     """Exit with code 2 if not inside a git repository."""
     if not is_git_repo():
-        typer.echo("Error: Not a git repository.", err=True)
-        typer.echo("Run diffguard from within a git repository.", err=True)
+        typer.echo("Error: Not a git repository. Run diffguard from within a git project.", err=True)
         raise typer.Exit(code=2)
 
 
@@ -60,7 +63,7 @@ def _validate_api_key() -> None:
     """Exit with code 2 if OPENAI_API_KEY is missing or blank."""
     api_key = os.environ.get("OPENAI_API_KEY", "")
     if not api_key.strip():
-        typer.echo("Error: OPENAI_API_KEY environment variable is not set.", err=True)
+        typer.echo("Error: Invalid API key. Check OPENAI_API_KEY environment variable.", err=True)
         typer.echo("Set it with: export OPENAI_API_KEY=sk-your-key-here", err=True)
         raise typer.Exit(code=2) from None
 
@@ -74,8 +77,7 @@ def _get_staged_diff_text() -> str:
         raise typer.Exit(code=2) from None
 
     if not raw_diff.strip():
-        typer.echo("No staged changes to analyze.")
-        typer.echo("Stage changes with: git add <files>")
+        typer.echo("No staged changes to analyze. Stage files with 'git add' first.")
         raise typer.Exit(code=0)
 
     return raw_diff
@@ -181,6 +183,13 @@ def _build_finding_ids(findings: list[Finding]) -> dict[Finding, str]:
     return {f: _compute_finding_id(f) for f in findings}
 
 
+def _print_errors(errors: list[FileAnalysisError]) -> None:
+    """Print file analysis errors with user-friendly messages."""
+    for error in errors:
+        msg = friendly_error_message(error.error_type, error.error)
+        typer.echo(f"Warning: {format_file_error(error.file_path, msg)}", err=True)
+
+
 def _print_results(
     result: AnalysisResult,
     console: Console,
@@ -188,6 +197,7 @@ def _print_results(
     files_analyzed: int,
     blocking: bool,
     suppressed_count: int = 0,
+    elapsed: float | None = None,
 ) -> None:
     """Print analysis results to the terminal using rich formatting."""
     stats = build_stats(result.findings, files_analyzed, suppressed_count=suppressed_count)
@@ -196,17 +206,15 @@ def _print_results(
         finding_ids = _build_finding_ids(result.findings)
         print_findings_grouped(result.findings, console, finding_ids=finding_ids)
         console.print()
-        print_summary(stats, console)
+        print_summary(stats, console, elapsed=elapsed)
         if blocking:
             console.print("[bold red]Blocking issues found — commit should be rejected.[/bold red]")
         console.print()
         console.print("[dim]To suppress a finding: diffguard baseline add <finding-id>[/dim]")
     else:
-        print_no_findings(stats, console)
+        print_no_findings(stats, console, elapsed=elapsed)
 
-    if result.errors:
-        for error in result.errors:
-            typer.echo(f"Warning: Error analyzing {error.file_path}: {error.error}", err=True)
+    _print_errors(result.errors)
 
 
 def _route_output(
@@ -218,6 +226,7 @@ def _route_output(
     metadata: ReportMetadata,
     blocking: bool,
     suppressed_count: int = 0,
+    elapsed: float | None = None,
 ) -> None:
     """Route analysis results to the appropriate output destinations."""
     if not json_output and not output:
@@ -227,6 +236,7 @@ def _route_output(
             files_analyzed=metadata.files_analyzed,
             blocking=blocking,
             suppressed_count=suppressed_count,
+            elapsed=elapsed,
         )
         if blocking:
             raise typer.Exit(code=1)
@@ -247,6 +257,7 @@ def _route_output(
                 files_analyzed=metadata.files_analyzed,
                 blocking=blocking,
                 suppressed_count=suppressed_count,
+                elapsed=elapsed,
             )
             console.print(f"Report saved to {output}")
     if blocking:
@@ -285,6 +296,20 @@ def _handle_dry_run(
             typer.echo(f"  {file_path} (~{tokens} tokens)")
     typer.echo(f"Total estimated tokens: {total_tokens}")
     raise typer.Exit(code=0)
+
+
+def _handle_errors_non_interactive(errors: list[FileAnalysisError], *, fail_on_error: bool) -> None:
+    """In non-TTY mode, abort on errors unless fail_on_error is False."""
+    if not errors:
+        return
+    if fail_on_error:
+        _print_errors(errors)
+        typer.echo("Error: Analysis failed for one or more files. Aborting.", err=True)
+        raise typer.Exit(code=2)
+    # Lenient mode: warn and continue
+    for error in errors:
+        msg = friendly_error_message(error.error_type, error.error)
+        typer.echo(f"Warning: Skipping {error.file_path}: {msg}", err=True)
 
 
 @app.callback(invoke_without_command=True)
@@ -334,21 +359,69 @@ async def _run_verbose_analysis(
             scope_count = len(fc.scopes)
             typer.echo(f"  {file_path} (~{tokens} tokens, {region_lines} region lines, {scope_count} scope(s))")
 
+    file_start_times: dict[str, float] = {}
+    file_findings: dict[str, int] = {}
+
+    def _verbose_callback(file_path: str, _completed: int, _total: int) -> None:
+        file_findings.setdefault(file_path, 0)
+
     start = time.monotonic()
+
+    # Track per-file timing using a wrapper
+    for ctx in prepared.code_contexts:
+        file_start_times[ctx.file_path] = time.monotonic()
+
     result = await analyze_files(
         prepared.code_contexts,
         client,
         max_concurrent=config.max_concurrent_api_calls,
         timeout_per_file=float(config.timeout),
+        on_progress=_verbose_callback,
     )
     result.findings = filter_by_confidence(result.findings, config.min_confidence)
     result.errors.extend(prepared.errors)
     elapsed = time.monotonic() - start
 
     if not json_output:
+        # Show per-file results
+        error_files = {e.file_path for e in result.errors}
+        findings_per_file: dict[str, int] = {}
+        for f in result.findings:
+            findings_per_file[f.file_path or ""] = findings_per_file.get(f.file_path or "", 0) + 1
+
+        for ctx in prepared.code_contexts:
+            if ctx.file_path in error_files:
+                error = next(e for e in result.errors if e.file_path == ctx.file_path)
+                msg = friendly_error_message(error.error_type, error.error)
+                typer.echo(format_file_error(ctx.file_path, msg))
+            else:
+                count = findings_per_file.get(ctx.file_path, 0)
+                file_elapsed = elapsed / max(files_analyzed, 1)  # approximate per-file
+                typer.echo(format_file_done(ctx.file_path, file_elapsed, count))
+
         typer.echo(f"Analysis completed in {elapsed:.1f}s")
 
     return result, files_analyzed, elapsed
+
+
+async def _run_default_analysis(
+    diff_files: list[DiffFile],
+    config: DiffguardConfig,
+    client: OpenAIClient,
+    console: Console,
+    *,
+    json_output: bool,
+) -> tuple[AnalysisResult, int, float]:
+    """Run analysis in default (non-verbose) mode with progress bar."""
+    start = time.monotonic()
+    total_files = len(diff_files)
+    if not json_output:
+        with AnalysisProgress(console, total_files) as progress:
+            result = await analyze_staged_changes(diff_files, config, client, on_progress=progress.update)
+    else:
+        result = await analyze_staged_changes(diff_files, config, client)
+    elapsed = time.monotonic() - start
+    return result, total_files, elapsed
 
 
 async def _run(
@@ -374,8 +447,7 @@ async def _run(
 
     diff_files = parse_diff(raw_diff)
     if not diff_files:
-        typer.echo("No staged changes to analyze.")
-        typer.echo("Stage changes with: git add <files>")
+        typer.echo("No staged changes to analyze. Stage files with 'git add' first.")
         raise typer.Exit(code=0)
 
     # Suppress rich output when --json is active
@@ -396,16 +468,16 @@ async def _run(
                 prepared, client, config, json_output=json_output
             )
         else:
-            elapsed = None
-            if not json_output:
-                with create_progress_spinner(console):
-                    result = await analyze_staged_changes(diff_files, config, client)
-            else:
-                result = await analyze_staged_changes(diff_files, config, client)
-            files_analyzed = len(diff_files)
+            result, files_analyzed, elapsed = await _run_default_analysis(
+                diff_files, config, client, console, json_output=json_output
+            )
     except DiffguardError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=2) from None
+
+    # In non-TTY mode, abort on errors if configured
+    if not sys.stdout.isatty() and not json_output:
+        _handle_errors_non_interactive(result.errors, fail_on_error=config.fail_on_error)
 
     _save_scan_cache(result.findings)
 
@@ -416,7 +488,7 @@ async def _run(
 
     if verbose and not json_output and suppressed_count > 0:
         for finding in suppressed:
-            typer.echo(f"  Suppressed: {finding.cwe_id or 'unknown'} — {finding.what}", err=True)
+            typer.echo(f"  Suppressed: {finding.cwe_id or 'unknown'} \u2014 {finding.what}", err=True)
 
     result.findings = active_findings
     blocking = should_block(result.findings, config)
@@ -437,4 +509,5 @@ async def _run(
         metadata=report_metadata,
         blocking=blocking,
         suppressed_count=suppressed_count,
+        elapsed=elapsed,
     )

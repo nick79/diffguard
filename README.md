@@ -125,6 +125,10 @@ max_concurrent_api_calls = 5  # default
 # API timeout in seconds
 timeout = 120  # default
 
+# Abort on LLM errors in non-interactive (piped) mode
+# Set to false to skip failed files and continue
+fail_on_error = true  # default
+
 # Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
 third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/", "target/", "build/", ".gradle/", "vendor/bundle/", "vendor/ruby/", ".bundle/", "tmp/cache/", "log/"]  # default
 

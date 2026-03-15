@@ -32,6 +32,10 @@
 # API timeout in seconds
 # timeout = 120
 
+# Abort on LLM errors in non-interactive (piped) mode.
+# Set to false to skip failed files and continue.
+# fail_on_error = true
+
 # Additional glob patterns for sensitive file exclusion (added to built-in defaults)
 # sensitive_patterns = []
 

@@ -201,7 +201,7 @@ async def analyze_staged_changes(
     client: LLMClient,
     *,
     project_root: Path | None = None,
-    on_progress: Callable[[int, int], None] | None = None,
+    on_progress: Callable[[str, int, int], None] | None = None,
 ) -> AnalysisResult:
     """Run the full analysis pipeline on staged diff files.
 
@@ -212,7 +212,7 @@ async def analyze_staged_changes(
         config: Diffguard configuration.
         client: LLM client for API calls.
         project_root: Project root directory for file resolution. Defaults to cwd.
-        on_progress: Optional callback called with (completed, total) after each file.
+        on_progress: Optional callback called with (file_path, completed, total) after each file.
 
     Returns:
         AnalysisResult with findings and any errors.
