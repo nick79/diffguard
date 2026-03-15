@@ -52,6 +52,7 @@ _EXTENSION_MAP: dict[str, Language] = {
     ".nunjucks": Language.HTML,
     ".pug": Language.HTML,
     ".erb": Language.HTML,
+    ".heex": Language.HTML,
     ".jinja": Language.HTML,
     ".jinja2": Language.HTML,
     ".mustache": Language.HTML,

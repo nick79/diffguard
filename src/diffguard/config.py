@@ -97,6 +97,7 @@ class DiffguardConfig(BaseModel):
             "wp-content/upgrade/",
             "deps/",
             "_build/",
+            "priv/static/",
         ],
         description="Patterns identifying third-party code paths (excluded from analysis and symbol resolution)",
     )

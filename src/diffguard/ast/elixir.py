@@ -541,6 +541,14 @@ def _app_name_to_namespace(app_name: str) -> str:
     return "".join(part.capitalize() for part in app_name.split("_"))
 
 
+def _detect_phoenix_project(project_root: Path) -> bool:
+    """Check if the project is a Phoenix application by looking for {:phoenix, ...} in deps."""
+    _app_name, dep_names = _load_mix_exs(project_root)
+    if dep_names is None:
+        return False
+    return "phoenix" in dep_names
+
+
 def clear_caches() -> None:
     """Clear mix.exs cache (useful for testing)."""
     _mix_cache.clear()
@@ -568,10 +576,22 @@ def is_first_party_elixir(
 
     # Load mix.exs info and check deps/project namespace
     app_name, dep_names = _load_mix_exs(project_root)
-    return _is_project_module(module_or_path, app_name, dep_names)
+    is_phoenix = dep_names is not None and "phoenix" in dep_names
+    return _is_project_module(module_or_path, app_name, dep_names, is_phoenix=is_phoenix)
 
 
-def _is_project_module(module_or_path: str, app_name: str | None, dep_names: set[str] | None) -> bool:
+def _matches_namespace(module: str, namespace: str) -> bool:
+    """Check if module matches a namespace exactly or as a prefix with dot separator."""
+    return module == namespace or module.startswith(f"{namespace}.")
+
+
+def _is_project_module(
+    module_or_path: str,
+    app_name: str | None,
+    dep_names: set[str] | None,
+    *,
+    is_phoenix: bool = False,
+) -> bool:
     """Check if a module belongs to the project (not a dependency)."""
     # Check if module matches a known dependency
     if dep_names is not None:
@@ -583,7 +603,11 @@ def _is_project_module(module_or_path: str, app_name: str | None, dep_names: set
     # Check if module matches the project namespace
     if app_name is not None:
         project_namespace = _app_name_to_namespace(app_name)
-        return module_or_path.startswith(project_namespace)
+        if _matches_namespace(module_or_path, project_namespace):
+            return True
+        # In Phoenix projects, the *Web namespace is also first-party
+        if is_phoenix and _matches_namespace(module_or_path, f"{project_namespace}Web"):
+            return True
 
     return False
 
@@ -627,6 +651,95 @@ def resolve_elixir_symbol(
     candidate = project_root / f"{rel_path}.ex"
     if candidate.is_file():
         return candidate
+
+    # Phoenix convention fallback for *Web modules
+    if _detect_phoenix_project(project_root):
+        result = _resolve_phoenix_convention(full_module, project_root)
+        if result is not None:
+            return result
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Phoenix convention resolution
+# ---------------------------------------------------------------------------
+
+# Suffix → subdirectory under the *_web/ directory
+_PHOENIX_SUFFIX_DIRS: tuple[tuple[str, str], ...] = (
+    ("Controller", "controllers"),
+    ("Live", "live"),
+    ("Components", "components"),
+    ("Component", "components"),
+    ("View", "views"),
+    ("Channel", "channels"),
+)
+
+
+def _resolve_phoenix_convention(module: str, project_root: Path) -> Path | None:
+    """Resolve a Phoenix *Web module to its conventional file location.
+
+    E.g. MyAppWeb.PageController → lib/my_app_web/controllers/page_controller.ex
+         MyAppWeb.UserLive.Index → lib/my_app_web/live/user_live/index.ex
+         MyAppWeb.Router → lib/my_app_web/router.ex
+    """
+    parts = module.split(".")
+    if len(parts) < 2:
+        return None
+
+    # First part must end with "Web"
+    web_namespace = parts[0]
+    if not web_namespace.endswith("Web"):
+        return None
+
+    web_dir = _camel_to_snake(web_namespace)
+    remaining = parts[1:]
+
+    # Try suffix-based subdirectory resolution
+    for suffix, subdir in _PHOENIX_SUFFIX_DIRS:
+        result = _try_phoenix_subdir(remaining, suffix, subdir, project_root, web_dir)
+        if result is not None:
+            return result
+
+    # Fallback: direct path under lib/*_web/ (e.g. MyAppWeb.Router → lib/my_app_web/router.ex)
+    rest_path = "/".join(_camel_to_snake(p) for p in remaining)
+    candidate = project_root / "lib" / web_dir / f"{rest_path}.ex"
+    if candidate.is_file():
+        return candidate
+
+    return None
+
+
+def _try_phoenix_subdir(
+    remaining: list[str],
+    suffix: str,
+    subdir: str,
+    project_root: Path,
+    web_dir: str,
+) -> Path | None:
+    """Try to resolve a module via a Phoenix subdirectory convention."""
+    # Check if any part matches the suffix (e.g. "PageController" ends with "Controller")
+    # For "Live", check if any part equals "Live" or ends with "Live"
+    first_part = remaining[0]
+
+    if suffix == "Live" and (first_part == "Live" or first_part.endswith("Live")):
+        # MyAppWeb.UserLive.Index → lib/my_app_web/live/user_live/index.ex
+        rest = "/".join(_camel_to_snake(p) for p in remaining)
+        candidate = project_root / "lib" / web_dir / subdir / f"{rest}.ex"
+        if candidate.is_file():
+            return candidate
+        # Also try without the "live" prefix duplication
+        if first_part.endswith("Live") and len(remaining) > 1:
+            sub_parts = [_camel_to_snake(p) for p in remaining]
+            candidate = project_root / "lib" / web_dir / subdir / "/".join(sub_parts) / f"{sub_parts[-1]}.ex"
+        return None
+
+    if first_part.endswith(suffix):
+        # MyAppWeb.PageController → lib/my_app_web/controllers/page_controller.ex
+        rest = "/".join(_camel_to_snake(p) for p in remaining)
+        candidate = project_root / "lib" / web_dir / subdir / f"{rest}.ex"
+        if candidate.is_file():
+            return candidate
 
     return None
 
