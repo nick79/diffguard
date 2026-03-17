@@ -6,6 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
@@ -217,20 +218,24 @@ def print_findings(findings: list[Finding], console: Console) -> None:
 def print_finding_detail(finding: Finding, console: Console, *, finding_id: str | None = None) -> None:
     """Print a detailed panel for a single finding."""
     style = SEVERITY_STYLES.get(finding.severity, "")
+    what = escape(finding.what)
+    why = escape(finding.why)
+    how_to_fix = escape(finding.how_to_fix)
+
     lines: list[str] = [
-        f"[bold]What:[/bold] {finding.what}",
-        f"[bold]Why:[/bold] {finding.why}",
-        f"[bold]How to fix:[/bold] {finding.how_to_fix}",
+        f"[bold]What:[/bold] {what}",
+        f"[bold]Why:[/bold] {why}",
+        f"[bold]How to fix:[/bold] {how_to_fix}",
     ]
     if finding.cwe_id:
-        lines.append(f"[bold]CWE:[/bold] {finding.cwe_id}")
+        lines.append(f"[bold]CWE:[/bold] {escape(finding.cwe_id)}")
     if finding.owasp_category:
-        lines.append(f"[bold]OWASP:[/bold] {finding.owasp_category}")
+        lines.append(f"[bold]OWASP:[/bold] {escape(finding.owasp_category)}")
     lines.append(f"[bold]Confidence:[/bold] {finding.confidence.value}")
     if finding_id:
         lines.append(f"[bold]ID:[/bold] [dim]{finding_id}[/dim]")
 
-    title = f"{finding.severity.value}: {truncate(finding.what, 60)}"
+    title = f"{finding.severity.value}: {escape(truncate(finding.what, 60))}"
     content = "\n".join(lines)
     console.print(Panel(content, title=title, border_style=style))
 

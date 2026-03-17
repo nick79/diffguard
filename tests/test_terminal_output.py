@@ -242,6 +242,34 @@ class TestPrintFindingDetail:
         print_finding_detail(finding, console)
         assert "OWASP:" not in output.getvalue()
 
+    def test_markup_in_what_is_escaped(self) -> None:
+        console, output = _make_console()
+        finding = _make_finding(what="Use [bold]parameterized[/bold] queries")
+        print_finding_detail(finding, console)
+        text = _strip_ansi(output.getvalue())
+        assert "[bold]parameterized[/bold]" in text
+
+    def test_markup_in_why_is_escaped(self) -> None:
+        console, output = _make_console()
+        finding = _make_finding(why="[red]dangerous[/red] pattern")
+        print_finding_detail(finding, console)
+        text = _strip_ansi(output.getvalue())
+        assert "[red]dangerous[/red]" in text
+
+    def test_markup_in_how_to_fix_is_escaped(self) -> None:
+        console, output = _make_console()
+        finding = _make_finding(how_to_fix="Use [link=http://example.com]this[/link]")
+        print_finding_detail(finding, console)
+        text = _strip_ansi(output.getvalue())
+        assert "[link=http://example.com]this[/link]" in text
+
+    def test_markup_in_panel_title_is_escaped(self) -> None:
+        console, output = _make_console()
+        finding = _make_finding(what="[red]SQL Injection[/red]")
+        print_finding_detail(finding, console)
+        text = _strip_ansi(output.getvalue())
+        assert "[red]SQL Injection[/red]" in text
+
     def test_panel_has_severity_in_title(self) -> None:
         console, output = _make_console()
         finding = _make_finding(severity=SeverityLevel.CRITICAL)
