@@ -204,16 +204,19 @@ def _parse_line_range(value: object) -> tuple[int, int] | None:
     start: int
     end: int
 
-    if isinstance(value, dict):
-        raw_start = value.get("start")
-        raw_end = value.get("end")
-        if raw_start is None or raw_end is None:
+    try:
+        if isinstance(value, dict):
+            raw_start = value.get("start")
+            raw_end = value.get("end")
+            if raw_start is None or raw_end is None:
+                return None
+            start, end = int(raw_start), int(raw_end)
+        elif isinstance(value, list) and len(value) >= 2:
+            start, end = int(value[0]), int(value[1])
+        else:
             return None
-        start, end = int(raw_start), int(raw_end)
-    elif isinstance(value, list) and len(value) >= 2:
-        start, end = int(value[0]), int(value[1])
-    else:
-        return None
+    except (ValueError, TypeError) as exc:
+        raise MalformedResponseError(f"Invalid line_range value: {value}") from exc
 
     if start < 0 or end < 0:
         raise MalformedResponseError(f"Line range contains negative line number: ({start}, {end})")

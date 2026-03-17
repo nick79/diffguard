@@ -356,6 +356,26 @@ class TestLineRangeParsing:
 
         assert findings[0].line_range is None
 
+    def test_non_numeric_start_raises(self) -> None:
+        raw = _make_response(line_range={"start": "abc", "end": 10})
+        with pytest.raises(MalformedResponseError, match="Invalid line_range"):
+            parse_llm_response(raw)
+
+    def test_non_numeric_end_raises(self) -> None:
+        raw = _make_response(line_range={"start": 5, "end": "xyz"})
+        with pytest.raises(MalformedResponseError, match="Invalid line_range"):
+            parse_llm_response(raw)
+
+    def test_non_numeric_list_values_raises(self) -> None:
+        raw = _make_response(line_range=["abc", "def"])
+        with pytest.raises(MalformedResponseError, match="Invalid line_range"):
+            parse_llm_response(raw)
+
+    def test_nested_object_where_int_expected_raises(self) -> None:
+        raw = _make_response(line_range={"start": {"nested": True}, "end": 10})
+        with pytest.raises(MalformedResponseError, match="Invalid line_range"):
+            parse_llm_response(raw)
+
 
 # ---------------------------------------------------------------------------
 # CWE ID normalization
