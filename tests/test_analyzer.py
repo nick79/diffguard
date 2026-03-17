@@ -403,6 +403,59 @@ class TestProgressCallback:
 
 
 # ---------------------------------------------------------------------------
+# Unexpected exception handling
+# ---------------------------------------------------------------------------
+
+
+class TestUnexpectedExceptionHandling:
+    async def test_unexpected_exception_recorded_as_error(self) -> None:
+        client = AsyncMock()
+        client.analyze.side_effect = RuntimeError("unexpected crash")
+
+        result = await analyze_files([_make_context("src/broken.py")], client)
+
+        assert len(result.findings) == 0
+        assert len(result.errors) == 1
+        assert result.errors[0].error_type == "RuntimeError"
+        assert result.errors[0].error == "unexpected crash"
+        assert result.errors[0].file_path == "src/broken.py"
+
+    async def test_other_files_still_analyzed(self) -> None:
+        client = AsyncMock()
+        client.analyze.side_effect = [
+            _make_response(("Issue A", "High")),
+            RuntimeError("boom"),
+            _make_response(("Issue C", "Medium")),
+        ]
+        contexts = [
+            _make_context("src/a.py"),
+            _make_context("src/b.py"),
+            _make_context("src/c.py"),
+        ]
+
+        result = await analyze_files(contexts, client, max_concurrent=1)
+
+        assert len(result.findings) == 2
+        assert {f.what for f in result.findings} == {"Issue A", "Issue C"}
+        assert len(result.errors) == 1
+        assert result.errors[0].file_path == "src/b.py"
+
+    async def test_progress_callback_called_for_failed_file(self) -> None:
+        client = AsyncMock()
+        client.analyze.side_effect = RuntimeError("boom")
+        progress_calls: list[tuple[str, int, int]] = []
+
+        await analyze_files(
+            [_make_context("src/fail.py")],
+            client,
+            on_progress=lambda fp, c, t: progress_calls.append((fp, c, t)),
+        )
+
+        assert len(progress_calls) == 1
+        assert progress_calls[0] == ("src/fail.py", 1, 1)
+
+
+# ---------------------------------------------------------------------------
 # Cancellation
 # ---------------------------------------------------------------------------
 

@@ -151,6 +151,13 @@ async def analyze_files(
                     error=str(e),
                     error_type=type(e).__name__,
                 )
+            except Exception as e:
+                logger.error("Unexpected error analyzing '%s': %s", context.file_path, e)
+                result = FileAnalysisError(
+                    file_path=context.file_path,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
             else:
                 result = findings
 
