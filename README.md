@@ -1,51 +1,78 @@
-# Diffguard
+# DiffGuard
 
-LLM-powered security review of staged git diffs.
+> LLM-powered security review for staged git diffs
 
-Diffguard builds surgical context around your code changes (expanding hunks, resolving scopes and symbols via tree-sitter), sends compact context to OpenAI, and returns actionable security findings aligned with OWASP/CWE.
+DiffGuard catches security vulnerabilities before they reach your codebase. It analyzes your staged git changes using OpenAI, building precise AST-aware context around each diff hunk via [tree-sitter](https://tree-sitter.github.io/), and returns actionable findings aligned with [OWASP](https://owasp.org/) and [CWE](https://cwe.mitre.org/) standards.
+
+## Features
+
+- **AST-aware context** — tree-sitter parses your code to extract enclosing scopes, imports, and symbol definitions, giving the LLM far more context than raw diffs alone
+- **14 languages** — full AST support for Python, JavaScript, TypeScript, Java, Ruby, Go, PHP, and Elixir; hybrid support for Vue, Svelte, and Astro SFCs; analysis-only support for HTML templates, CSS, and Makefiles
+- **Framework detection** — automatically recognizes Django, Flask, FastAPI, Rails, Sinatra, Laravel, WordPress, Phoenix, and more, applying framework-specific import resolution and exclusion rules
+- **Deterministic severity** — a built-in mapping of 295 CWEs to severity levels ensures the same vulnerability always gets the same severity, regardless of LLM output variance
+- **Configurable thresholds** — control which severity levels block, warn, or are allowed via `.diffguard.toml`
+- **Baseline suppression** — mark known false positives so they never appear again
+- **Sensitive file protection** — 112+ built-in patterns automatically prevent `.env` files, private keys, certificates, and cloud credentials from being sent to the LLM
+- **JSON reports** — machine-readable output with `--json` or `--output`
+- **Dry-run mode** — preview which files and how many tokens would be analyzed without making API calls
+
+## Quick Start
+
+Get up and running in under a minute:
+
+```bash
+# 1. Install DiffGuard
+git clone https://github.com/nick79/diffguard.git
+cd diffguard
+uv tool install .
+
+# 2. Set your OpenAI API key
+export OPENAI_API_KEY=sk-your-key-here
+
+# 3. Navigate to any project, stage changes, and scan
+cd /path/to/your/project
+git add -p
+diffguard
+```
+
+DiffGuard exits with code `0` if no blocking issues are found, or `1` if it detects vulnerabilities that exceed your severity thresholds.
 
 ## Installation
 
-Requires Python 3.14+ and [uv](https://docs.astral.sh/uv/).
+### Requirements
+
+- Python 3.14+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- An [OpenAI API key](https://platform.openai.com/api-keys)
+
+### Install from source
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/diffguard.git
+git clone https://github.com/nick79/diffguard.git
 cd diffguard
-
-# Install as a global CLI tool
 uv tool install .
 ```
 
-This installs `diffguard` as a globally available command. The `uv tool install` command:
-- Creates an isolated virtual environment for diffguard
-- Installs all dependencies
-- Makes the `diffguard` command available system-wide
+This installs `diffguard` as a globally available command. The `uv tool install` command creates an isolated virtual environment, installs all dependencies, and makes the `diffguard` CLI available system-wide.
 
 ### Setting up your API key
 
-Diffguard requires an OpenAI API key. Export it in your shell:
+DiffGuard requires an OpenAI API key set as an environment variable. Add it to your shell profile for persistence:
 
 ```bash
-# Add to your shell profile (~/.zshrc, ~/.bashrc, etc.) for persistence
+# ~/.zshrc, ~/.bashrc, or equivalent
 export OPENAI_API_KEY=sk-your-key-here
 ```
 
-### Updating diffguard
+DiffGuard reads the key from the `OPENAI_API_KEY` environment variable at runtime. It does **not** read from `.env` files — you must export the variable in your shell.
 
-When new changes are available:
+### Updating DiffGuard
+
+When a new version is available:
 
 ```bash
 cd /path/to/diffguard
 git pull
-uv tool install . --force
-```
-
-The `--force` flag reinstalls the tool even if it's already installed, picking up any new changes.
-
-If `--force` doesn't pick up changes (e.g. cached build artifacts), do a full reinstall:
-
-```bash
 uv tool uninstall diffguard
 uv cache clean diffguard
 uv tool install .
@@ -53,48 +80,70 @@ uv tool install .
 
 ## Usage
 
-Navigate to any git repository, stage your changes, and run diffguard:
+Navigate to any git repository, stage your changes, and run `diffguard`:
 
 ```bash
-cd /path/to/your/project
-
-# Stage your changes
-git add -p
-
-# Run security analysis
+# Run security analysis on staged changes
 diffguard
 
-# Dry run (see what would be analyzed without calling the LLM)
+# Preview what would be analyzed (no API calls)
 diffguard --dry-run
 
-# Output as JSON
+# Output findings as JSON to stdout
 diffguard --json
 
-# Save report to file
+# Save JSON report to a file
 diffguard --output report.json
 
-# Verbose output
+# Verbose mode with timing, token counts, and per-file status
 diffguard --verbose
 
-# Show help
-diffguard --help
-
-# Show version
-diffguard --version
+# Combine flags
+diffguard --verbose --dry-run
+diffguard --json --output report.json
 ```
+
+### CLI Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--verbose` | `-v` | Show timing, file count, token estimates, and per-file analysis status |
+| `--dry-run` | | List files and estimate tokens without calling the LLM |
+| `--json` | | Output findings as JSON to stdout (suppresses terminal formatting) |
+| `--output FILE` | | Save JSON report to the specified file path |
+| `--version` | | Print the DiffGuard version and exit |
+| `--help` | | Show all available commands and flags |
 
 ### Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | Pass — no blocking findings (warn/allow findings may still be printed) |
-| 1 | Block — findings above severity threshold exist (commit should be rejected) |
-| 2 | Error — not a git repo, missing API key, config error, LLM failure, etc. |
-| 130 | Interrupted (Ctrl+C) |
+| `0` | **Pass** — no blocking findings (warn/allow findings may still be printed) |
+| `1` | **Block** — findings above severity threshold exist (commit should be rejected) |
+| `2` | **Error** — not a git repo, missing API key, config error, LLM failure, etc. |
+| `130` | **Interrupted** — user pressed Ctrl+C |
+
+### Pre-commit Hook
+
+Add DiffGuard as a git pre-commit hook to automatically scan staged changes before every commit:
+
+```bash
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/sh
+diffguard
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+**How it works:** Git runs the pre-commit hook before creating each commit. If the hook script exits with a non-zero code, git aborts the commit. DiffGuard already exits with code `1` when it detects blocking findings (Critical or High severity by default), so no additional scripting is needed — just calling `diffguard` is enough to block commits with security issues. Exit code `0` (no blocking findings) lets the commit proceed normally.
+
+To bypass the hook for a specific commit (e.g., after reviewing findings and accepting the risk), use `git commit --no-verify`.
 
 ## Configuration
 
-Create a `.diffguard.toml` file in your project root (or any parent directory) to customize settings. All settings are optional and have sensible defaults.
+DiffGuard works out of the box with sensible defaults — no configuration file is required. To customize settings for a specific project, create a file named **`.diffguard.toml`** in the **root directory of the project you want to scan** (the same directory where your `.git/` folder lives). DiffGuard searches for this file starting from the current working directory and walking up the directory tree, so you can also place it in a parent directory to apply settings to multiple projects.
+
+Only the settings you want to change need to be included — all others keep their defaults. Below is the full reference showing every available option with its default value:
 
 ```toml
 # LLM model to use for analysis
@@ -130,14 +179,20 @@ timeout = 120  # default
 fail_on_error = true  # default
 
 # Patterns identifying third-party code paths (excluded from analysis and symbol resolution)
-third_party_patterns = ["venv/", ".venv/", "site-packages/", "node_modules/", "bower_components/", "target/", "build/", ".gradle/", "vendor/bundle/", "vendor/ruby/", ".bundle/", "tmp/cache/", "log/"]  # default
+third_party_patterns = [
+    "venv/", ".venv/", "site-packages/",
+    "node_modules/", "bower_components/",
+    "target/", "build/", ".gradle/",
+    "vendor/bundle/", "vendor/ruby/", ".bundle/",
+    "tmp/cache/", "log/"
+]  # default
 
 # Path to baseline file (relative to project root)
 baseline_path = ".diffguard-baseline.json"  # default
 
 # Additional glob patterns for sensitive file exclusion
 # These are added on top of the built-in defaults (.env, *.pem, *.key, etc.)
-sensitive_patterns = ["*.secret.json", "**/private/**"]  # default: []
+sensitive_patterns = []  # default
 
 # Whether to include the built-in sensitive file patterns
 use_default_sensitive_patterns = true  # default
@@ -152,9 +207,15 @@ low = "allow"        # default
 info = "allow"       # default
 ```
 
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | Your OpenAI API key (required for analysis, not needed for `--dry-run`) |
+
 ### Sensitive File Exclusion
 
-Diffguard automatically excludes files matching known secrets patterns from being sent to the LLM. This provides defense-in-depth even if sensitive files are accidentally staged.
+DiffGuard automatically excludes files matching known secrets patterns from being sent to the LLM. This provides defense-in-depth even if sensitive files are accidentally staged.
 
 **Default patterns include:**
 - Environment files: `.env`, `.env.*`, `*.env`
@@ -197,7 +258,7 @@ Only the levels you specify are overridden — unmentioned levels keep their def
 
 ### Severity Classification
 
-Diffguard uses a two-stage approach to classify finding severity:
+DiffGuard uses a two-stage approach to classify finding severity:
 
 1. **LLM identifies the vulnerability** — the OpenAI model detects security issues and assigns a CWE identifier (e.g., CWE-89 for SQL Injection).
 2. **Deterministic severity mapping** — a built-in CWE-to-severity mapping (295 CWEs) assigns the final severity in code, ensuring the same CWE always gets the same severity regardless of LLM output variance.
@@ -229,11 +290,11 @@ The built-in CWE-to-severity mapping covers 295 CWEs compiled from:
 - [CWE-1003 Simplified Mapping](https://cwe.mitre.org/data/definitions/1003.html) — commonly mapped CWEs in published vulnerabilities
 - SAST tool coverage from SonarQube, Semgrep, CodeQL, Checkmarx, Fortify, GitLab SAST, and Mend SAST
 
-### Baseline Management
+## Baseline Management
 
 Suppress known false positives so they don't appear in future scans. Baselined findings are automatically excluded from scan results, exit code evaluation, and output. If any findings are suppressed, the summary shows the count (e.g., "2 issues found (1 suppressed)").
 
-#### Adding a finding to the baseline
+### Adding a finding to the baseline
 
 After a scan, use the finding ID shown in the output:
 
@@ -241,19 +302,19 @@ After a scan, use the finding ID shown in the output:
 diffguard baseline add cwe89-a1b2c3d4e5f6a7b8 --reason "Validated input upstream"
 ```
 
-#### Bulk-adding Low/Info findings
+### Bulk-adding Low/Info findings
 
 ```bash
 diffguard baseline add --all-low
 ```
 
-#### Removing a finding from the baseline
+### Removing a finding from the baseline
 
 ```bash
 diffguard baseline remove cwe89-a1b2c3d4e5f6a7b8
 ```
 
-#### Listing baselined findings
+### Listing baselined findings
 
 ```bash
 diffguard baseline list
@@ -265,15 +326,9 @@ The baseline file defaults to `.diffguard-baseline.json` in the project root. Ov
 baseline_path = "custom/path/baseline.json"
 ```
 
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | Your OpenAI API key (required) |
-
 ## Supported Languages
 
-Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to build precise context around code changes. Full language support includes scope detection, import extraction, symbol resolution, and first-party/third-party code classification.
+DiffGuard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to build precise context around code changes. Full language support includes scope detection, import extraction, symbol resolution, and first-party/third-party code classification.
 
 | Language | Extensions | AST Support |
 |----------|-----------|-------------|
@@ -292,13 +347,18 @@ Diffguard uses [tree-sitter](https://tree-sitter.github.io/) for AST parsing to 
 | CSS & Stylesheets | `.css`, `.scss`, `.sass`, `.less` | Analysis-only |
 | Makefile | `Makefile`, `makefile`, `GNUmakefile`, `.mk` | Analysis-only |
 
-Files with unsupported or unrecognized extensions are still included in the diff analysis — they just skip AST-based context enrichment and use raw hunk expansion instead.
+Files with unsupported or unrecognized extensions are skipped. Binary files are automatically excluded.
+
+**AST support levels:**
+- **Full** — tree-sitter parsing with scope detection, import extraction, symbol resolution, and first-party/third-party classification
+- **Hybrid** — script/frontmatter blocks receive full AST enrichment; template/markup sections receive analysis-only treatment
+- **Analysis-only** — files are included in the diff context with raw hunk expansion but do not receive AST-based enrichment
 
 ### Python
 
 **Scope detection:** Functions, async functions, classes, methods, nested definitions. Decorators are included in scope boundaries. Lambdas and comprehensions are not treated as scopes.
 
-**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, diffguard resolves the import to its source file and includes the symbol's definition in the LLM context. This gives the LLM visibility into helper functions, base classes, and utilities that the changed code depends on.
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, DiffGuard resolves the import to its source file and includes the symbol's definition in the LLM context. This gives the LLM visibility into helper functions, base classes, and utilities that the changed code depends on.
 
 **First-party detection:** Only first-party (project-local) symbols are resolved — third-party and stdlib code is excluded:
 - Relative imports (`from .module import X`) are always first-party
@@ -312,7 +372,7 @@ Files with unsupported or unrecognized extensions are still included in the diff
 
 These patterns are matched against file paths. Staged files under these directories are skipped during analysis, and symbols resolving to these directories are not included in the LLM context.
 
-**Module resolution:** Diffguard resolves Python imports to file paths using standard conventions:
+**Module resolution:** DiffGuard resolves Python imports to file paths using standard conventions:
 - `module.py` — single-file modules
 - `module/__init__.py` — package modules
 - `src/module.py` and `src/module/__init__.py` — src layout projects
@@ -323,19 +383,19 @@ These patterns are matched against file paths. Staged files under these director
 
 #### Python Framework Support
 
-**Django:** Diffguard detects Django projects (via `manage.py` at project root) and adds Django app awareness for first-party detection. App directories containing `__init__.py` plus conventional files (`models.py`, `views.py`, `admin.py`, `forms.py`, `urls.py`, `apps.py`, `serializers.py`) are recognized as first-party modules even when they can't be resolved via standard import paths.
+**Django:** DiffGuard detects Django projects (via `manage.py` at project root) and adds Django app awareness for first-party detection. App directories containing `__init__.py` plus conventional files (`models.py`, `views.py`, `admin.py`, `forms.py`, `urls.py`, `apps.py`, `serializers.py`) are recognized as first-party modules even when they can't be resolved via standard import paths.
 
 Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test runner cache), `htmlcov/` (coverage reports)
 
-**Flask:** Diffguard detects Flask projects (via `Flask(__name__)` in `app.py`, `wsgi.py`, or `application.py`). Flask uses standard Python imports throughout, so no special resolution is needed beyond detection.
+**Flask:** DiffGuard detects Flask projects (via `Flask(__name__)` in `app.py`, `wsgi.py`, or `application.py`). Flask uses standard Python imports throughout, so no special resolution is needed beyond detection.
 
-**FastAPI:** Diffguard detects FastAPI projects (via `FastAPI()` in `main.py`, `app.py`, or `asgi.py`). FastAPI uses standard Python imports throughout, so no special resolution is needed beyond detection.
+**FastAPI:** DiffGuard detects FastAPI projects (via `FastAPI()` in `main.py`, `app.py`, or `asgi.py`). FastAPI uses standard Python imports throughout, so no special resolution is needed beyond detection.
 
 ### JavaScript
 
 **Scope detection:** Functions, arrow functions, function expressions, generator functions, async functions, classes, and methods. Arrow functions and function expressions assigned to variables inherit the variable name. Anonymous callbacks get `<anonymous>`.
 
-**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, diffguard resolves the import to its source file. Both ES6 imports (`import { x } from './utils'`) and CommonJS (`const x = require('./utils')`) are supported. Dynamic `import()` expressions are also detected.
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, DiffGuard resolves the import to its source file. Both ES6 imports (`import { x } from './utils'`) and CommonJS (`const x = require('./utils')`) are supported. Dynamic `import()` expressions are also detected.
 
 **First-party detection:** Only first-party (project-local) symbols are resolved — third-party packages are excluded:
 - Relative imports (`./utils`, `../lib`) are always first-party
@@ -350,7 +410,7 @@ Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test 
 - Filename patterns: `.min.js`, `.min.mjs`, `.min.cjs`, `.bundle.js`, `.chunk.js`
 - Content heuristic: files with average line length > 500 characters
 
-**Module resolution:** Diffguard resolves JavaScript imports using standard Node.js conventions:
+**Module resolution:** DiffGuard resolves JavaScript imports using standard Node.js conventions:
 - `./module.js` — exact file path
 - `./module` — tries `.js`, `.mjs`, `.cjs`, `.jsx` extensions
 - `./lib` — tries `index.js` in directory (index convention)
@@ -359,7 +419,7 @@ Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test 
 
 **Scope detection:** Typed functions, arrow functions with type annotations, function expressions, generator functions, async functions, classes (including generics), methods, and namespaces. Extends JavaScript scope detection patterns with TypeScript-specific constructs.
 
-**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, diffguard resolves the import to its source file. Both ES6 imports and CommonJS `require()` calls are supported. Type-only imports (`import type { ... }`) and inline type imports (`import { type Foo, bar }`) are recognized and excluded from runtime symbol resolution — only value imports are resolved.
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party module, DiffGuard resolves the import to its source file. Both ES6 imports and CommonJS `require()` calls are supported. Type-only imports (`import type { ... }`) and inline type imports (`import { type Foo, bar }`) are recognized and excluded from runtime symbol resolution — only value imports are resolved.
 
 **First-party detection:** Same rules as JavaScript — relative imports are first-party, bare specifiers are checked against `package.json` name/workspaces:
 - Relative imports (`./utils`, `../lib`) are always first-party
@@ -375,7 +435,7 @@ Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test 
 - Content heuristic: files with average line length > 500 characters (minified/bundled)
 - Note: `.d.ts` files in `node_modules/` are already skipped by vendor path filtering
 
-**Module resolution:** Diffguard resolves TypeScript imports using standard conventions:
+**Module resolution:** DiffGuard resolves TypeScript imports using standard conventions:
 - `./module.ts` — exact file path
 - `./module` — tries `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`, `.jsx` extensions
 - `./lib` — tries `index.ts`/`index.tsx`/etc. in directory (index convention)
@@ -384,7 +444,7 @@ Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test 
 
 **Scope detection:** Classes, interfaces, enums, methods, constructors, static methods, inner classes, and lambdas. Annotations (e.g., `@Override`, `@Service`) are included in scope boundaries as part of the method/class declaration.
 
-**Symbol resolution:** When a changed code region references a symbol imported from a first-party package, diffguard resolves the import to its source file. Both regular imports (`import com.example.Helper;`) and static imports (`import static com.example.Utils.format;`) are supported. Wildcard imports (`import com.example.*;`) are also detected.
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party package, DiffGuard resolves the import to its source file. Both regular imports (`import com.example.Helper;`) and static imports (`import static com.example.Utils.format;`) are supported. Wildcard imports (`import com.example.*;`) are also detected.
 
 **First-party detection:** Only first-party (project-local) symbols are resolved — standard library and third-party code is excluded:
 - Standard library packages (`java.*`, `javax.*`, `jdk.*`, `com.sun.*`) are excluded
@@ -401,7 +461,7 @@ Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test 
 - Path patterns: `**/generated-sources/**`, `**/generated/**`, `**/apt_generated/**` (annotation processor output)
 - Content heuristic: files with `@Generated` annotation in the first 20 lines
 
-**Module resolution:** Diffguard resolves Java imports using standard Maven/Gradle conventions:
+**Module resolution:** DiffGuard resolves Java imports using standard Maven/Gradle conventions:
 - `com.example.MyClass` → `src/main/java/com/example/MyClass.java`
 - Also tries `src/test/java/` and `src/` layouts
 
@@ -409,7 +469,7 @@ Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test 
 
 **Scope detection:** Methods (`def`), class methods (`def self.method`), classes, modules, blocks (`do...end` / `{ }`), and lambdas (`->`). Nested modules and classes are correctly resolved to the innermost scope.
 
-**Symbol resolution:** When a changed code region references a symbol imported via `require` or `require_relative`, diffguard resolves the import to its source file. Ruby's snake_case-to-CamelCase naming convention is used to match class names to file names (e.g., `require 'my_helper'` resolves symbol `MyHelper`).
+**Symbol resolution:** When a changed code region references a symbol imported via `require` or `require_relative`, DiffGuard resolves the import to its source file. Ruby's snake_case-to-CamelCase naming convention is used to match class names to file names (e.g., `require 'my_helper'` resolves symbol `MyHelper`).
 
 **First-party detection:** Only first-party (project-local) symbols are resolved — standard library and third-party gems are excluded:
 - `require_relative` imports are always first-party
@@ -426,13 +486,13 @@ Additional excluded paths: `staticfiles/` (collectstatic output), `.tox/` (test 
 - `db/schema.rb` — Rails auto-generated schema dump
 - Content heuristic: files with `# This file is auto-generated`, `# Generated by`, or `# DO NOT EDIT` in the first 5 lines
 
-**Module resolution:** Diffguard resolves Ruby imports using standard conventions:
+**Module resolution:** DiffGuard resolves Ruby imports using standard conventions:
 - `require_relative './helper'` — relative to current file, tries `.rb` extension
 - `require 'my_app/helper'` — tries `lib/my_app/helper.rb`, `my_app/helper.rb`, `app/my_app/helper.rb`
 
 #### Ruby Framework Support
 
-**Rails:** Diffguard detects Rails projects (via `config/application.rb`) and adds Zeitwerk-style autoload resolution. When a changed region references a class with no explicit `require`, diffguard resolves it via Rails conventions:
+**Rails:** DiffGuard detects Rails projects (via `config/application.rb`) and adds Zeitwerk-style autoload resolution. When a changed region references a class with no explicit `require`, DiffGuard resolves it via Rails conventions:
 - `User` → `app/models/user.rb`
 - `UsersController` → `app/controllers/users_controller.rb`
 - `Admin::DashboardController` → `app/controllers/admin/dashboard_controller.rb`
@@ -449,7 +509,7 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 
 **Scope detection:** Functions, methods (value and pointer receivers), anonymous functions (goroutines), and init functions. Go does not have classes — struct types are defined at package level and are not treated as scopes.
 
-**Symbol resolution:** When a changed code region references a symbol imported from a first-party package, diffguard resolves the import to its source file. Both single imports (`import "fmt"`) and grouped imports (`import (...)`) are supported, including aliased imports (`import f "fmt"`), blank/side-effect imports (`import _ "database/sql"`), and dot imports (`import . "strings"`).
+**Symbol resolution:** When a changed code region references a symbol imported from a first-party package, DiffGuard resolves the import to its source file. Both single imports (`import "fmt"`) and grouped imports (`import (...)`) are supported, including aliased imports (`import f "fmt"`), blank/side-effect imports (`import _ "database/sql"`), and dot imports (`import . "strings"`).
 
 **First-party detection:** Only first-party (project-local) symbols are resolved — standard library and third-party code is excluded:
 - Standard library packages (no dots in import path: `fmt`, `net/http`, `crypto/tls`) are excluded
@@ -464,14 +524,14 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 - `// Code generated ... DO NOT EDIT.` convention (the standard `go generate` header, as first content line after optional build tags)
 - Filename patterns: `*.pb.go` (protobuf), `*_string.go` (stringer), `mock_*.go`/`*_mock.go` (mock generators), `*_gen.go` (general generated suffix)
 
-**Module resolution:** Diffguard resolves Go imports using `go.mod` module path:
+**Module resolution:** DiffGuard resolves Go imports using `go.mod` module path:
 - `github.com/myorg/myapp/internal/utils` → `internal/utils/*.go` (first non-test `.go` file in the package directory)
 
 ### PHP
 
 **Scope detection:** Functions, methods (public/private/protected/static), classes, traits, interfaces, anonymous functions (closures with `use` clause), and arrow functions (PHP 7.4+). Constructors (`__construct`) are detected as methods.
 
-**Symbol resolution:** When a changed code region references a symbol imported via `use` statements, diffguard resolves the import to its source file using PSR-4 autoload conventions. Both `use` class imports and grouped use statements (`use App\Models\{User, Post}`) are supported. `require`/`include` and their `_once` variants are also detected.
+**Symbol resolution:** When a changed code region references a symbol imported via `use` statements, DiffGuard resolves the import to its source file using PSR-4 autoload conventions. Both `use` class imports and grouped use statements (`use App\Models\{User, Post}`) are supported. `require`/`include` and their `_once` variants are also detected.
 
 **First-party detection:** Only first-party (project-local) symbols are resolved — third-party packages are excluded:
 - `use` statements matching PSR-4 namespace prefixes from `composer.json` are first-party
@@ -485,13 +545,13 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 - Path patterns: `var/cache/` (Symfony), `bootstrap/cache/` (Laravel), `storage/framework/cache/` (Laravel)
 - Content heuristic: files with `<?php // auto-generated`, `@generated`, or similar markers in the first 5 lines
 
-**Module resolution:** Diffguard resolves PHP imports using PSR-4 conventions from `composer.json`:
+**Module resolution:** DiffGuard resolves PHP imports using PSR-4 conventions from `composer.json`:
 - `App\Services\UserService` with `{"App\\": "src/"}` → `src/Services/UserService.php`
 - Also tries `src/`, `app/`, `lib/` directories as fallbacks
 
 #### Laravel Framework Support
 
-**Laravel:** Diffguard detects Laravel projects (via `artisan` file at project root) and adds convention-based symbol resolution. When a changed region references a class with no matching import, diffguard resolves it via Laravel's `App\` → `app/` directory convention:
+**Laravel:** DiffGuard detects Laravel projects (via `artisan` file at project root) and adds convention-based symbol resolution. When a changed region references a class with no matching import, DiffGuard resolves it via Laravel's `App\` → `app/` directory convention:
 - `App\Models\User` → `app/Models/User.php`
 - `App\Http\Controllers\UserController` → `app/Http/Controllers/UserController.php`
 - `App\Services\Payment\StripeService` → `app/Services/Payment/StripeService.php`
@@ -506,7 +566,7 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 
 #### WordPress Framework Support
 
-**WordPress:** Diffguard detects WordPress projects via `wp-config.php` at the project root, or by recognizing standalone plugin/theme projects (`Plugin Name:` header in a PHP file, or `Theme Name:` header in `style.css`).
+**WordPress:** DiffGuard detects WordPress projects via `wp-config.php` at the project root, or by recognizing standalone plugin/theme projects (`Plugin Name:` header in a PHP file, or `Theme Name:` header in `style.css`).
 
 **First-party detection:** In a WordPress plugin or theme, the plugin/theme's own files are treated as first-party. WordPress core directories (`wp-includes/`, `wp-admin/`) and other plugins' files are treated as third-party.
 
@@ -527,7 +587,7 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 - `require Logger` — compile-time require
 - `use GenServer` — macro-based use
 
-**Symbol resolution:** When a changed code region references a module, diffguard resolves it to its source file using Elixir's convention-based module-to-file mapping: `MyApp.Accounts.User` → `lib/my_app/accounts/user.ex`. Aliased module names are resolved via the corresponding `alias` directive. Umbrella projects (`apps/*/lib/`) are also checked.
+**Symbol resolution:** When a changed code region references a module, DiffGuard resolves it to its source file using Elixir's convention-based module-to-file mapping: `MyApp.Accounts.User` → `lib/my_app/accounts/user.ex`. Aliased module names are resolved via the corresponding `alias` directive. Umbrella projects (`apps/*/lib/`) are also checked.
 
 **First-party detection:** Only first-party (project-local) modules are resolved — standard library and third-party code is excluded:
 - Elixir/Erlang stdlib modules (`Enum`, `GenServer`, `:crypto`, `:ets`, etc.) are excluded
@@ -644,14 +704,175 @@ Additional generated file detection: `db/migrate/*.rb` files with `# This migrat
 
 **Analysis-only support.** Makefiles are detected by filename (`Makefile`, `makefile`, `GNUmakefile`) or extension (`.mk`) and included in diff analysis with raw hunk expansion. No AST-based scope detection, import extraction, or symbol resolution is performed — the LLM analyzes the raw code context directly.
 
+## Examples
+
+### Basic pre-commit usage
+
+```bash
+# Stage specific files and scan them
+git add src/auth.py src/api/handlers.py
+diffguard
+
+# If DiffGuard finds issues, fix them and re-scan
+vim src/auth.py
+git add src/auth.py
+diffguard
+```
+
+### Custom severity thresholds
+
+```toml
+# .diffguard.toml — strict mode for security-critical services
+[thresholds]
+critical = "block"
+high = "block"
+medium = "block"   # upgrade Medium to blocking
+low = "warn"       # show Low findings as warnings
+info = "allow"
+```
+
+```toml
+# .diffguard.toml — relaxed mode for internal tools
+[thresholds]
+critical = "block"
+high = "warn"      # downgrade High to warning-only
+medium = "allow"
+low = "allow"
+info = "allow"
+```
+
+### JSON output for downstream processing
+
+```bash
+# Pipe findings to jq for filtering
+diffguard --json | jq '.findings[] | select(.severity == "Critical")'
+
+# Save report and check summary
+diffguard --output report.json
+cat report.json | jq '.summary'
+```
+
+### Dry-run to estimate cost
+
+```bash
+# See how many tokens would be sent before making API calls
+diffguard --dry-run
+```
+
+Output includes per-file token estimates and a total, so you can gauge API cost before running the full scan.
+
+## Troubleshooting
+
+### "Not a git repository"
+
+```
+Error: Not a git repository. Run diffguard from within a git project.
+```
+
+DiffGuard must be run from inside a git repository. Make sure you're in the correct directory:
+
+```bash
+cd /path/to/your/project
+git status  # verify it's a git repo
+diffguard
+```
+
+### "No staged changes to analyze"
+
+```
+No staged changes to analyze. Use git add to stage files first.
+```
+
+DiffGuard only analyzes staged (not committed) changes. Stage your files first:
+
+```bash
+git add -p          # interactively stage hunks
+# or
+git add src/file.py # stage a specific file
+diffguard
+```
+
+### "OPENAI_API_KEY not set"
+
+```
+Error: OPENAI_API_KEY environment variable is not set.
+```
+
+Export your API key in your shell:
+
+```bash
+export OPENAI_API_KEY=sk-your-key-here
+```
+
+Add it to your shell profile (`~/.zshrc`, `~/.bashrc`) for persistence. Use `--dry-run` to preview analysis without an API key.
+
+### LLM timeout or rate limit errors
+
+```
+Error: Request timed out. Try again or increase the timeout.
+Error: Rate limit exceeded. Wait a moment and try again.
+```
+
+- **Timeout:** Increase the timeout in `.diffguard.toml`: `timeout = 300`
+- **Rate limit:** Wait a few seconds and retry. Reduce `max_concurrent_api_calls` to lower the request rate.
+- **Large diffs:** Use `max_tokens_per_scan` to cap total token usage, or stage fewer files at a time.
+
+### Invalid API key
+
+```
+Error: Invalid API key. Check your OPENAI_API_KEY.
+```
+
+Verify your key is correct and has not expired. Check at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+
+### Config file errors
+
+```
+Error: Failed to parse .diffguard.toml — invalid TOML syntax.
+```
+
+Validate your TOML syntax. Common mistakes:
+- Missing quotes around string values (e.g., `model = gpt-5.2` instead of `model = "gpt-5.2"`)
+- Unclosed brackets in table headers
+- Invalid table headers (e.g., `[threshold]` instead of `[thresholds]`)
+
+### Unsupported file types skipped
+
+Files with unrecognized extensions (`.xyz`, `.custom`, etc.) are silently skipped. This is expected — DiffGuard only analyzes known source file types. See the [Supported Languages](#supported-languages) table for the full list.
+
+### High token usage
+
+If scans are consuming too many tokens:
+- Set `max_tokens_per_scan` to cap total usage per scan
+- Reduce `hunk_expansion_lines` to send less context per file (default: 50)
+- Reduce `scope_size_limit` to truncate large scope extractions (default: 200)
+- Stage fewer files at a time
+
+### Server errors (500)
+
+```
+Error: Server error. The OpenAI API returned an internal error. Try again later.
+```
+
+This is an OpenAI-side issue. Wait a moment and retry. If the problem persists, check [OpenAI status](https://status.openai.com/).
+
 ## Development
 
 ```bash
 # Install dependencies
 uv sync
 
-# Run tests
+# Run all tests (1600+ tests)
 uv run pytest
+
+# Run with verbose output
+uv run pytest -v
+
+# Run with coverage
+uv run pytest --cov=src
+
+# Run only integration tests
+uv run pytest tests/integration/
 
 # Format code
 uv run ruff format .
@@ -659,10 +880,13 @@ uv run ruff format .
 # Lint code
 uv run ruff check .
 
-# Type check
+# Auto-fix lint issues
+uv run ruff check . --fix
+
+# Type check (strict mode)
 uv run mypy .
 ```
 
 ## License
 
-PolyForm Noncommercial License 1.0.0 - see [LICENSE](LICENSE) for details.
+PolyForm Noncommercial License 1.0.0 — see [LICENSE](LICENSE) for details.
