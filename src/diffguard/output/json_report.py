@@ -57,7 +57,6 @@ def _build_metadata_dict(metadata: ReportMetadata) -> dict[str, Any]:
     """Build metadata dict, omitting None values."""
     d: dict[str, Any] = {
         "staged_files": metadata.staged_files,
-        "analyzed_files": metadata.files_analyzed,
         "files_analyzed": metadata.files_analyzed,
     }
     if metadata.analysis_time_seconds is not None:

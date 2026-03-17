@@ -125,8 +125,13 @@ class TestGenerateReport:
         meta = _make_metadata(staged_files=17)
         report = generate_report([], meta)
         assert report["metadata"]["staged_files"] == 17
-        assert report["metadata"]["analyzed_files"] == 5
         assert report["metadata"]["files_analyzed"] == 5
+
+    def test_metadata_has_no_duplicate_analyzed_files_key(self) -> None:
+        meta = _make_metadata(files_analyzed=7)
+        report = generate_report([], meta)
+        assert "analyzed_files" not in report["metadata"]
+        assert report["metadata"]["files_analyzed"] == 7
 
 
 class TestWriteReport:
