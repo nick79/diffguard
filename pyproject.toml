@@ -1,6 +1,6 @@
 [project]
 name = "diffguard"
-version = "0.1.0"
+version = "1.0.0"
 description = "LLM-powered security review of staged git diffs"
 readme = "README.md"
 requires-python = ">=3.14"
