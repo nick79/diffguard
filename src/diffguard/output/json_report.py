@@ -107,7 +107,7 @@ def write_report(report: dict[str, Any], path: Path) -> None:
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+        path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     except OSError as exc:
         msg = f"Could not write report to {path}: {exc}"
         raise ReportWriteError(msg) from exc

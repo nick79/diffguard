@@ -164,6 +164,23 @@ class TestWriteReport:
         assert "Уязвимость" in content
         assert "危険" in content
 
+    def test_raw_bytes_are_valid_utf8(self, tmp_path: Path) -> None:
+        finding = Finding(
+            what="SQL注入",
+            why="Пользовательский ввод",
+            how_to_fix="パラメータ化クエリを使用",
+            severity=SeverityLevel.HIGH,
+            confidence=ConfidenceLevel.HIGH,
+        )
+        report = generate_report([finding], _make_metadata())
+        out = tmp_path / "report.json"
+        write_report(report, out)
+        raw = out.read_bytes()
+        content = raw.decode("utf-8")
+        assert "SQL注入" in content
+        assert "Пользовательский" in content
+        assert "パラメータ化" in content
+
     def test_creates_parent_directories(self, tmp_path: Path) -> None:
         report = generate_report([], _make_metadata())
         out = tmp_path / "reports" / "2024" / "jan" / "report.json"
