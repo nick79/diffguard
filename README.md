@@ -27,7 +27,7 @@ cd diffguard
 uv tool install .
 
 # 2. Set your OpenAI API key
-export OPENAI_API_KEY=sk-your-key-here
+export OPENAI_API_KEY=your-key-here
 
 # 3. Navigate to any project, stage changes, and scan
 cd /path/to/your/project
@@ -61,7 +61,7 @@ DiffGuard requires an OpenAI API key set as an environment variable. Add it to y
 
 ```bash
 # ~/.zshrc, ~/.bashrc, or equivalent
-export OPENAI_API_KEY=sk-your-key-here
+export OPENAI_API_KEY=your-key-here
 ```
 
 DiffGuard reads the key from the `OPENAI_API_KEY` environment variable at runtime. It does **not** read from `.env` files — you must export the variable in your shell.
@@ -801,7 +801,7 @@ Error: OPENAI_API_KEY environment variable is not set.
 Export your API key in your shell:
 
 ```bash
-export OPENAI_API_KEY=sk-your-key-here
+export OPENAI_API_KEY=your-key-here
 ```
 
 Add it to your shell profile (`~/.zshrc`, `~/.bashrc`) for persistence. Use `--dry-run` to preview analysis without an API key.
